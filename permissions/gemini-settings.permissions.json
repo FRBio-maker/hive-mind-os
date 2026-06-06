@@ -1,0 +1,30 @@
+{
+  "_doc": "Permission + hook excerpt for ~/.gemini/settings.json. Merge these keys into your live settings.json; don't replace the whole file (it carries MCP servers, plugins, statusLine, etc.). Note: Gemini timeouts are in MILLISECONDS, not seconds.",
+
+  "_policyPaths_note": "Tells Gemini where to load its TOML policy rules from. The actual policies live in this repo at gemini-policies/ — drop them at ~/.gemini/policies/.",
+  "policyPaths": [
+    "~/.gemini/policies/"
+  ],
+
+  "general": {
+    "_defaultApprovalMode_note": "auto_edit auto-approves edits but still prompts for shell. Don't set 'yolo' here — enum error at startup; yolo is a CLI flag only.",
+    "defaultApprovalMode": "auto_edit"
+  },
+
+  "_hook_snippet": "OPTIONAL human-in-the-loop relay (see ../docs/human-in-the-loop.md). Add to hooks.BeforeTool — merge with existing entries, don't replace the array. The matcher is wide because the adapter does the actual filtering — non-matching calls return allow silently. Point the command at your own relay; the placeholder below is not a real path.",
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "run_shell_command|read_file|read_many_files|write_file|replace|web_fetch|grep_search|list_directory",
+        "hooks": [
+          {
+            "name": "approval-relay",
+            "type": "command",
+            "command": "<your-relay-command>",
+            "timeout": 600000
+          }
+        ]
+      }
+    ]
+  }
+}

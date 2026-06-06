@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / temp
+*.swp
+*.tmp
+*~
+
+# Secrets — never commit these
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+id_ed25519
+*.credentials.json
+.credentials.json
+*.secret

@@ -1,0 +1,24 @@
+# Permission excerpt for ~/.grok/config.toml — the permission-relevant key.
+#
+# Grok (xAI CLI) brings itself into the shared Deny/Ask/Auto model in two parts:
+#
+# 1. RULES (inherited, no copy needed): if Grok runs in Claude-Code
+#    compatibility mode, it reads the shared Claude settings file and
+#    translates permissions.allow/deny/ask into native Grok rules.
+#    Bash(...) maps to run_terminal_cmd, Read(...) to read_file, Edit(...)
+#    to search_replace. So the canonical deny rules (rm -rf /, credential
+#    reads) and ask rules (curl|sh, git push --force, ~/.ssh / ~/.aws /
+#    .env reads) all apply to Grok automatically — and route through the
+#    same relay PreToolUse hook if you wired one up.
+#
+# 2. PROMPT POLICY (value below): permission_mode only governs commands NOT
+#    already decided by the steps above. Decision flow:
+#    PreToolUse hooks -> deny/ask/allow rules -> safe fast-paths -> permission_mode.
+#    The real risk gate is the rules + relay hook (step 1); permission_mode
+#    is secondary. "default" prompts on anything unclassified — the stricter
+#    choice. Avoid Grok's "auto" mode: it is flagged experimental.
+#
+# Merge this one key into your live ~/.grok/config.toml:
+
+[ui]
+permission_mode = "default"

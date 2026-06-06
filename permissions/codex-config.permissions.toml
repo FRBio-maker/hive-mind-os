@@ -1,0 +1,34 @@
+# Permission + hook excerpt for ~/.codex/config.toml.
+# Merge these sections into your live config.toml; don't replace the whole
+# file (it also carries model selection, MCP servers, etc.).
+#
+# Codex's PermissionRequest hook only fires on actual approval prompts
+# (unlike Claude's PreToolUse, which fires on every matched tool), so an
+# attached relay adapter doesn't need client-side filtering — it relays
+# everything it sees.
+#
+# Codex generates a per-machine trust hash (a [hooks.state] block) on first
+# run after you trust a hook. Don't copy that block across machines — let
+# Codex regenerate it on each install.
+
+# Route command execution through Codex's approval flow.
+exec_permission_approvals = true
+
+# Project trust levels — auto-trust certain dirs so Codex doesn't ask every
+# session. SUBSTITUTE your own paths; the placeholder is not a real dir.
+[projects.'<your-project-path>']
+trust_level = "trusted"
+
+# OPTIONAL human-in-the-loop relay (see ../docs/human-in-the-loop.md).
+# Routes Codex permission prompts to an approval channel. Fires on every
+# permission request (matcher = ".*"). Set the timeout to match your
+# adapter's own wait window so Codex doesn't kill the hook early. Point the
+# command at your own relay; the placeholder below is not a real path.
+[[hooks.PermissionRequest]]
+matcher = ".*"
+
+[[hooks.PermissionRequest.hooks]]
+type = "command"
+command = "<your-relay-command>"
+timeout = 600
+statusMessage = "Awaiting approval"

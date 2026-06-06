@@ -1,0 +1,16 @@
+{
+  "general": {
+    "defaultApprovalMode": "auto_edit"
+  },
+  "policyPaths": [
+    "~/.gemini/policies/"
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 \"$HOME/<your-vault>/scripts/session_start_hook.py\""
+      }
+    ]
+  }
+}

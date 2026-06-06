@@ -1,0 +1,119 @@
+# This policy mirrors the shared Claude-style permission model for Gemini's
+# terminal prompt. It works in tandem with an optional approval relay hook
+# (see ../../docs/human-in-the-loop.md) that enforces the "ask" rules on a
+# secondary channel (e.g. your phone). Drop this file at ~/.gemini/policies/.
+
+# 1. DENY rules: Block dangerous operations without prompting.
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.credentials\\.json"'
+decision = "deny"
+priority = 900
+denyMessage = "Access to credential files is forbidden."
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "rm -rf (\\/|\\/\\*|~|~\\/\\*|\\$HOME.*)"
+decision = "deny"
+priority = 900
+
+# 2. ASK rules: prompt before risky reads/commands. SAFE DEFAULT = prompt in
+# the terminal (decision="ask_user"). If you wire an approval relay (see
+# ../../docs/human-in-the-loop.md), flip these to decision="allow" so the
+# terminal stays quiet and the relay asks on your phone instead (it reads
+# phone_decision). Never set decision="allow" here WITHOUT a relay — without
+# one, "allow" lets these risky operations run silently (fails open).
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.ssh/.*"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.aws/.*"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.gnupg/.*"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*"[^"]*\.env($|\..*)"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+# Token-bearing config files (registry creds, container/cluster auth, FTP creds).
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.netrc"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.npmrc"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.pypirc"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.docker/config\\.json"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.kube/config"'
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "(curl|wget) .* \\| (sh|bash).*"
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "git push (--force|-f).*"
+decision = "ask_user"
+phone_decision = "ask_user"
+priority = 800
+
+# 3. DIRECTORY rules (optional): silent actions for specific trusted folders
+# (no secondary prompt). Substitute your own trusted path(s).
+[[rule]]
+toolName = "*"
+argsPattern = ".*<your-trusted-dir>.*"
+decision = "allow"
+priority = 500
+
+# 4. NO blanket allow catch-all (deliberate). Operations matching none of the
+# rules above fall through to Gemini's native `defaultApprovalMode` (set in
+# settings.json), which prompts for shell commands. We intentionally omit a
+# `toolName="*" decision="allow"` rule: it would auto-permit EVERY unmatched
+# operation — reading arbitrary files, novel destructive commands, network
+# calls — i.e. fail open. If you run an approval relay and want fewer terminal
+# prompts, add NARROW allow rules for the specific routine tools you trust
+# (e.g. read_file scoped to your project dir). Never a blanket allow.

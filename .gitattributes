@@ -1,0 +1,9 @@
+# Normalise line endings to LF on commit, check out as LF everywhere.
+# This stops CRLF churn on Windows without breaking cross-platform work.
+* text=auto eol=lf
+
+# Mark common binary formats so git never attempts line-ending conversion.
+*.png binary
+*.jpg binary
+*.gif binary
+*.pdf binary

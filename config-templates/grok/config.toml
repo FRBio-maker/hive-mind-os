@@ -1,0 +1,21 @@
+# Grok CLI config template (config.toml).
+# Grok loads this from your Grok config directory (~/.grok/). This is a
+# MINIMAL, illustrative template — merge the pieces you want into your live
+# config rather than replacing it wholesale.
+#
+# Identity: Grok runs in Claude-compatibility mode and reads its house rules
+# from ~/.grok/AGENTS.md (bootstrap symlinks identity/GROK.md there). So this
+# file carries only runtime knobs, not persona — the persona lives in AGENTS.md.
+
+[ui]
+# Fallback approval posture for tool calls that no permission rule matches.
+# "default" prompts on risky/ambiguous actions instead of auto-running them
+# (fail-safe). Pair this with a permission policy (see ../../permissions/
+# grok-config.permissions.toml) and, optionally, a human-in-the-loop relay.
+permission_mode = "default"
+
+# Project trust: auto-trust specific directories so Grok doesn't re-prompt
+# every session. SUBSTITUTE your own paths — the placeholder below is not a
+# real directory. Add one block per trusted project.
+[projects.'<your-project-path>']
+trust_level = "trusted"

@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": [
+      "Read(**)"
+    ],
+    "ask": [
+      "Read(**/.ssh/**)",
+      "Read(**/.aws/**)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/.netrc)",
+      "Read(**/.npmrc)",
+      "Read(**/.pypirc)",
+      "Read(**/.docker/config.json)",
+      "Read(**/.kube/config)",
+      "Bash(curl * | sh*)",
+      "Bash(curl * | bash*)",
+      "Bash(git push --force *)"
+    ],
+    "deny": [
+      "Read(**/.credentials.json)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf $HOME*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/<your-vault>/scripts/session_start_hook.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

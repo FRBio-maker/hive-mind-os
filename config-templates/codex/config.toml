@@ -1,0 +1,15 @@
+# Codex CLI config template (config.toml).
+# Codex loads this from your Codex config directory. This is a MINIMAL,
+# illustrative template — merge the pieces you want into your live config
+# rather than replacing it wholesale.
+
+# Route permission prompts through Codex's approval flow rather than
+# auto-running everything. Pair this with a permission policy (see
+# ../../permissions/) and, optionally, a human-in-the-loop relay hook.
+exec_permission_approvals = true
+
+# Project trust levels: auto-trust specific directories so Codex doesn't
+# ask every session. SUBSTITUTE your own paths — the placeholder below is
+# not a real directory. Add one block per trusted project.
+[projects.'<your-project-path>']
+trust_level = "trusted"

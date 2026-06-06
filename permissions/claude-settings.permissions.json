@@ -1,0 +1,63 @@
+{
+  "_doc": "Permission + hook excerpt for ~/.claude/settings.json. Merge these keys into your live settings.json; don't replace the whole file (it also carries machine-specific MCP servers, status line, theme, plugins, etc.). This excerpt is the security-relevant core: what runs silently, what asks, what's blocked.",
+
+  "permissions": {
+    "allow": [
+      "Read(**)"
+    ],
+    "deny": [
+      "Read(**/.credentials.json)",
+      "Read(**/.claude.json)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/*)",
+      "Bash(rm -rf $HOME*)"
+    ],
+    "ask": [
+      "Read(**/.ssh/**)",
+      "Read(**/.aws/**)",
+      "Read(**/.gnupg/**)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/.netrc)",
+      "Read(**/.npmrc)",
+      "Read(**/.pypirc)",
+      "Read(**/.docker/config.json)",
+      "Read(**/.kube/config)",
+      "Bash(curl * | sh*)",
+      "Bash(curl * | bash*)",
+      "Bash(wget * | sh*)",
+      "Bash(wget * | bash*)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
+    ],
+    "defaultMode": "auto"
+  },
+
+  "_hook_snippet": "OPTIONAL human-in-the-loop relay. If you wire up an approval relay (see ../docs/human-in-the-loop.md), add it to hooks.PreToolUse — merge with existing entries, don't replace the array. Point the command at your own relay; the placeholder below is not a real path.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<your-relay-command>",
+            "timeout": 600
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<your-ask-relay-command>",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
