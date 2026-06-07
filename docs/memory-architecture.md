@@ -32,7 +32,7 @@ Edge types and node taxonomy are formalized in `<vault>/SCHEMA.md` (17 node type
 **Where:** Tool-dependent — e.g. an episodic capture tool such as claude-mem stores sessions at `~/.claude-mem/`.
 **Behavior:** Full-fidelity capture of past sessions, automatically appended via PostToolUse + Stop hooks. The autobiographical record. Storage substrate, not curated structure.
 
-Retrieval is **cued, not eager** — session-start auto-injection is off by design. Query explicitly when a topic anchor suggests prior work might exist (use a `mem-search` skill or equivalent tool). Treat it like searching a journal: go look when the cue tells you something is probably in there.
+Retrieval of episodic **content** is **cued, not eager**. One nuance to be precise about: a **compact digest** of recent observations (IDs + titles + timestamps — a navigation index, not the content) *is* injected at session start, the same way the wiki manifest is. What is **off by design** is auto-injection of the full observation *bodies* — those you pull explicitly when a topic anchor suggests prior work might exist (use a `mem-search` skill or equivalent tool). Treat it like a journal whose table of contents sits on the desk: the index is in front of you; you open the actual entry only when a cue tells you it's worth reading.
 
 ### Adjunct: Token-economy (context-mode)
 
@@ -70,5 +70,5 @@ Different lifecycles, different access patterns, different content shapes. Mixin
 ## Cross-references
 
 - `docs/wiki-protocol.md` — the wiki traversal protocol (canonical for layer 2).
-- `identity/linux/CLAUDE.md` — Claude's identity file pointer into this protocol.
+- `identity/CLAUDE.md` — Claude's identity file pointer into this protocol.
 - `<vault>/SCHEMA.md` — full node taxonomy and edge type definitions.

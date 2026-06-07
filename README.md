@@ -1,4 +1,3 @@
-<!-- README skeleton — body filled in Task 5.1. Section order is intentional. -->
 # hive-mind-os
 
 > A markdown-and-config operating doctrine for running a cross-agent
@@ -29,8 +28,10 @@ What the system provides:
   requests out-of-band (phone relay) and block until answered. They never
   silently proceed with irreversible actions.
 - **Bootstrap installer.** `bootstrap/setup-linux.sh` and
-  `bootstrap/setup-windows.ps1` copy or symlink identity files into the right
-  runtime directories in one command.
+  `bootstrap/setup-windows.ps1` copy or symlink the four **identity files** into
+  the right runtime directories in one command. It does **only** the identity
+  files — merging permission excerpts and symlinking the companion tooling are
+  separate steps (see ONBOARDING.md).
 
 ## Philosophy
 
@@ -93,15 +94,18 @@ approval relay, and skill routing — is documented with seven Mermaid diagrams
 in [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md).
 
 Short version: each runtime directory (`~/.claude/`, `~/.codex/`, `~/.gemini/`,
-`~/.grok/`) holds a symlink to the identity file in this repo. Permission
-settings are merged (not symlinked) so the live file can hold machine-specific
-keys alongside the versioned permission keys. Everything else — hooks, skills,
-plugins — is tree-symlinked from a companion **tooling repo** (a separate
-repository that holds runnable executables, hooks, and shared skills; **not
-included in this template**). The **approval relay** (the human-in-the-loop
-daemon) is likewise a **companion component not shipped here** — adopters bring
-or build their own (pattern documented in `docs/human-in-the-loop.md`).
-Bootstrap wires the pieces together in one command once you have them.
+`~/.grok/`) holds a symlink to the identity file in this repo — and **that is
+all the bootstrap installs**. Permission settings are meant to be merged (not
+symlinked) so the live file can hold machine-specific keys alongside the
+versioned permission keys, but that merge is a **manual step you perform** using
+the excerpts in `permissions/` — the bootstrap does not touch settings, hooks,
+or permissions. Everything else — hooks, skills, plugins — is tree-symlinked
+from a companion **tooling repo** (a separate repository that holds runnable
+executables, hooks, and shared skills; **not included in this template**). The
+**approval relay** (the human-in-the-loop daemon) is likewise a **companion
+component not shipped here** — adopters bring or build their own (pattern
+documented in `docs/human-in-the-loop.md`). Bootstrap symlinks the identity
+files; you wire the remaining pieces once you have them.
 
 ## Adopting it
 

@@ -111,10 +111,12 @@ discipline.
 
 ## 2. Symlink topology — how a runtime directory maps to canonical
 
-Zoom in on one runtime (Claude Code, Linux). Identity is full-file symlinked;
-hooks/skills are tree-symlinked; permission settings are *merged* (canonical
-holds excerpts because live files also carry machine-specific stuff like MCP
-servers).
+Zoom in on one runtime (Claude Code, Linux). Identity is full-file symlinked
+**by the bootstrap**; hooks/skills are tree-symlinked and permission settings
+are *merged* as **separate manual steps** (canonical holds excerpts because live
+files also carry machine-specific stuff like MCP servers). The bootstrap
+installs the identity symlink only — it does not merge permissions or symlink
+hooks.
 
 ```mermaid
 flowchart LR
@@ -130,8 +132,8 @@ flowchart LR
 
     subgraph AHM[hive-mind-os repo]
         direction TB
-        AHM_ID["linux/CLAUDE.md"]
-        AHM_PERM["permissions/linux/<br/>claude-settings.permissions.json<br/>(EXCERPT — keys only)"]
+        AHM_ID["identity/CLAUDE.md"]
+        AHM_PERM["permissions/<br/>(EXCERPT — keys only)"]
         AHM_BOOT["bootstrap/setup-linux.sh"]
     end
 
@@ -142,14 +144,14 @@ flowchart LR
         AT_PL["claude/linux/plugins/<br/>(marketplace metadata)"]
     end
 
-    ID -- "symlink" --> AHM_ID
-    HK -- "symlink (tree)" --> AT_HK
-    SK -- "symlink (tree)" --> AT_SK
-    ST -- "merged on bootstrap" --> AHM_PERM
+    ID -- "symlink (bootstrap)" --> AHM_ID
+    HK -- "symlink (tree, manual)" --> AT_HK
+    SK -- "symlink (tree, manual)" --> AT_SK
+    ST -- "merged manually<br/>(NOT by bootstrap)" --> AHM_PERM
     PL -. "marketplace install" .-> AT_PL
     MEM -. "not canonical<br/>(per-machine identity)" .-> MEM
 
-    AHM_BOOT -. "performs symlinks +<br/>merges permission excerpt" .-> RT
+    AHM_BOOT -. "symlinks identity<br/>files ONLY" .-> RT
 
     classDef live fill:#fde,stroke:#a36
     classDef canon fill:#dfd,stroke:#393
@@ -159,11 +161,13 @@ flowchart LR
     class ST,AHM_PERM merge
 ```
 
-**Bootstrap rule:** identity files get *symlinked* (single canonical source of
-truth). Permission settings get *merged* (live file keeps MCP/plugin keys; only
-permission keys are versioned). Per-project memory stays local — identity for
-the machine, not the fleet. Same pattern repeats for Codex (`~/.codex/`),
-Gemini (`~/.gemini/`), and the Windows side.
+**Bootstrap rule:** the bootstrap *symlinks the identity files only* (single
+canonical source of truth). Permission settings get *merged* and hooks/skills
+get tree-symlinked as **separate manual steps you run after** — the live
+settings file keeps MCP/plugin keys while only permission keys are versioned.
+Per-project memory stays local — identity for the machine, not the fleet. Same
+pattern repeats for Codex (`~/.codex/`), Gemini (`~/.gemini/`), and the Windows
+side.
 
 ---
 
@@ -182,7 +186,7 @@ flowchart LR
     end
 
     AM -->|always-on inject<br/>identity/preferences| AC
-    CM -->|always-on inject<br/>recent episodic timeline| AC
+    CM -->|inject COMPACT digest only<br/>recent IDs+titles, not bodies| AC
     OW -->|always-on inject<br/>Layer-1 nav backbone| AC
 
     AC["Agent Context<br/>(attention window)"]
@@ -207,7 +211,7 @@ flowchart LR
 **Distinction (and the promotion path):**
 - **Auto-memory** — small, deterministic, *always loaded*. "Who I am, how I work."
 - **Wiki vault** — curated, walkable, *always injected at Layer 1 only* (manifest); deeper layers walked on demand. "I've gone down this trail before."
-- **Episodic capture layer** — full episodic record, *cued retrieval only* (no auto-injection of full bodies). "The journal."
+- **Episodic capture layer** — full episodic record. A **compact recent-observation digest** (IDs + titles + timestamps — a navigation index, like the wiki manifest) *is* auto-injected at session start; the **full bodies are never auto-injected** — they are pulled only on cue (e.g. via `mem-search`). "The journal, with its table of contents on the desk." Note the diagram arrow above: what fires at session start is the digest, not the record.
 - **context-mode** — working-memory; not durable. Findings get *promoted* upward into the other three.
 
 ---
@@ -490,10 +494,9 @@ symlink (or merge target), not a copy.
 | Knowledge-graph vault | `<your-home>/Obsidian/` (or your chosen vault root) |
 | Knowledge-graph vault (Linux view) | `<vault>/` (symlinked or native) |
 | approval-relay | `<your-home>/approval-relay/` |
-| Linux identity sources | `hive-mind-os/linux/{CLAUDE,AGENTS,GEMINI}.md` |
-| Windows identity sources | `hive-mind-os/windows/{CLAUDE,AGENTS,GEMINI}.md` |
-| Permission excerpts | `hive-mind-os/permissions/{linux,windows}/` |
-| Bootstrap scripts | `hive-mind-os/bootstrap/setup-{linux.sh,windows.ps1}` |
+| Identity sources (OS-agnostic) | `hive-mind-os/identity/{CLAUDE,AGENTS,GEMINI,GROK}.md` |
+| Permission excerpts | `hive-mind-os/permissions/` |
+| Bootstrap scripts | `hive-mind-os/bootstrap/{bootstrap.py, setup-linux.sh, setup-windows.ps1}` |
 | Shared skills | `<tooling-repo>/shared/skills/` |
 | Delegation wrappers | `<tooling-repo>/bin/{delegate-codex,delegate-gemini}` |
 | Routing rules | `<tooling-repo>/{claude,codex,gemini}/routing.toml` |
@@ -523,4 +526,4 @@ Layer 1 (manifest) is always loaded; deeper layers are walked on demand per the
 Wiki Protocol. The episodic layer is cued retrieval only. Context-mode is
 working memory; durable findings get promoted upward.
 
-Three rules, six runtimes, four repos, one logical machine.
+Three rules, four runtimes (eight instances across two OSes), four repos, one logical machine.

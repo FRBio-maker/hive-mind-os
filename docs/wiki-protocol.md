@@ -18,14 +18,16 @@ labels first, expand only what earns it.
 
 ## The three-tier walk
 
-**Tier 1 — find the relevant cluster(s).**
-Scan cluster summaries (`_summary.md` of each session-cluster) plus topic-hub
-concept nodes. Each is cheap — a TL;DR capped at ≤80 words plus edges. Cluster
-count stays in the dozens, not thousands.
+**Tier 1 — scan the topic hubs.**
+The session-start manifest lists **topic hubs only** (the Layer-1 backbone) —
+each a cheap TL;DR capped at ≤80 words plus edges. Hub count stays small. You do
+*not* see cluster summaries at this tier; you reach them in Tier 2 by descending
+from a hub that matched.
 
-**Tier 2 — scan in-cluster nodes.**
-Within a relevant cluster, read frontmatter + TL;DR + Connections of each
-member node (~30 lines per node). Decide which need deeper reading.
+**Tier 2 — descend the hub to cluster summaries, then nodes.**
+From a matched hub, walk its edges to the relevant cluster `_summary.md` files,
+then read frontmatter + TL;DR + Connections of the member nodes inside them
+(~30 lines each). Decide which need deeper reading.
 
 **Tier 3 — read detail on demand.**
 Only nodes whose TL;DR earned it get expanded into their full `## Detail`
@@ -109,9 +111,10 @@ If no hub fits, announce: *"No hub fits — left unbound for lint."*
 ## Manifest-first session start
 
 At the start of any session, the agent scans the wiki manifest
-(`<vault>/MANIFEST.md`) — a Layer-1 navigation backbone listing all topic hubs
-and recent clusters. This is injected automatically if session hooks are wired;
-otherwise the agent reads it manually.
+(`<vault>/MANIFEST.md`) — a Layer-1 navigation backbone listing **the topic hubs
+only** (`gen_manifest.py` builds it from hubs; cluster summaries are reached by
+descending from a hub, not listed here). This is injected automatically if
+session hooks are wired; otherwise the agent reads it manually.
 
 On every user message, before answering, the agent asks: *"could any hub's
 accumulated decisions, patterns, or edge cases sharpen my answer?"* If yes —

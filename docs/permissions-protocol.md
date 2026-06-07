@@ -200,6 +200,8 @@ Three reasons:
 ## Cross-references
 
 - `permissions/README.md` — file-by-file snapshot and merge instructions.
-- `permissions/{linux,windows}/` — the actual rule excerpts (JSON and TOML).
+- `permissions/` — the actual rule excerpts, flat and OS-agnostic:
+  `codex-config.permissions.toml`, `grok-config.permissions.toml`, and
+  `gemini-policies/` (TOML/JSON).
 - `docs/INFRASTRUCTURE.md` Panel 4 — the permission pipeline Mermaid diagram.
 - `docs/human-in-the-loop.md` — relay setup guide.

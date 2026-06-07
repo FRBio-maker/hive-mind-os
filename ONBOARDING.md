@@ -123,17 +123,22 @@ A canonical identity file already exists for you. Linking it in is two steps.
 cd <your-home>
 git clone git@github.com:<your-username>/hive-mind-os.git   # skip if present
 
-# 2. Run the bootstrap for your OS. It BACKS UP each existing identity/settings
-#    file (to <file>.bak.<timestamp>) and replaces it with a symlink into the
-#    repo. Nothing is destroyed; rollback is one flag away.
+# 2. Run the bootstrap for your OS. It installs the FOUR IDENTITY FILES ONLY —
+#    it does NOT merge permissions, wire settings, or symlink hooks (those are
+#    separate steps, below and in docs/permissions-protocol.md). With --force it
+#    BACKS UP each existing identity file (to <file>.bak.<timestamp>) before
+#    replacing it with a symlink into the repo. Nothing is destroyed; rollback
+#    is one flag away. Run it with no flags first — that prints the plan and
+#    writes nothing.
 bash <your-home>/hive-mind-os/bootstrap/setup-linux.sh
 #    On Windows, from an elevated PowerShell:
 #    cd <your-home>\hive-mind-os\bootstrap ; .\setup-windows.ps1
 ```
 
-**Before you run it, tell the human exactly what it will change** (the symlinks
-listed at the top of `setup-linux.sh`) and wait for their go-ahead. This is the
-first state-changing command — confirm it.
+**Before you run it, tell the human exactly what it will change** (run
+`bash bootstrap/setup-linux.sh` with no flags — it prints the dry-run plan of
+which identity files it will symlink, and writes nothing) and wait for their
+go-ahead. This is the first state-changing command — confirm it.
 
 After it runs, your identity file and settings now write *through* to the repo.
 `git commit` captures changes; `git push` distributes them. Roll back any time
@@ -153,13 +158,13 @@ confirming before each write.
 **Step 1 — Learn the rules you must embody.** Read this repo's identity files as
 references for *what a hive agent knows and how it behaves*:
 
-- `linux/CLAUDE.md` — the fullest example (role framing, memory architecture,
+- `identity/CLAUDE.md` — the fullest example (role framing, memory architecture,
   wiki protocol, permission discipline). Read it even though it says "Claude" —
   most of it is machine-level convention, not Claude-specific.
-- `linux/AGENTS.md` (Codex) and `linux/GEMINI.md` (Gemini) — shorter variants,
-  useful to see what stays constant across runtimes.
+- `identity/AGENTS.md` (Codex) and `identity/GEMINI.md` (Gemini) — shorter
+  variants, useful to see what stays constant across runtimes.
 - `docs/` — `memory-architecture.md`, `permissions-protocol.md`,
-  `synchronization.md`, `wiki-integration.md`.
+  `multi-runtime.md`, `wiki-protocol.md`.
 
 **Step 2 — Find out what your runtime can actually do.** Integration is
 best-effort and degrades gracefully. Determine:
@@ -177,17 +182,17 @@ best-effort and degrades gracefully. Determine:
 
 **Step 3 — Create your canonical identity file** (confirm with the human first):
 
-1. Write `linux/<RUNTIME>.md` (e.g. `linux/CURSOR.md`) holding the house rules
-   from §4, adapted to your runtime's voice and capabilities. Lift the role
-   framing, memory architecture, and permission discipline from `linux/CLAUDE.md`
-   — do not reinvent them. Add a `windows/<RUNTIME>.md` if you also run on
-   Windows.
+1. Write `identity/<RUNTIME>.md` (e.g. `identity/CURSOR.md`) holding the house
+   rules from §4, adapted to your runtime's voice and capabilities. Lift the role
+   framing, memory architecture, and permission discipline from
+   `identity/CLAUDE.md` — do not reinvent them. Identity files are OS-agnostic
+   (one file serves Linux and Windows); there is no separate `windows/` copy.
 2. Symlink your runtime's real identity-file location to that canonical file,
-   following the backup-then-symlink pattern in `bootstrap/setup-linux.sh`
+   following the backup-then-symlink pattern in `bootstrap/bootstrap.py`
    (back up the original to `<file>.bak.<timestamp>` first — never overwrite
    without a backup).
-3. Add your file(s) to the `FILES` map in `bootstrap/setup-linux.sh` (and the
-   Windows script) so the next machine links you in automatically.
+3. Add your file(s) to the `_mappings()` function in `bootstrap/bootstrap.py`
+   so the next machine links you in automatically.
 4. Add a row for your runtime to the README's layout and to
    `docs/INFRASTRUCTURE.md` so the fleet docs stay honest.
 
