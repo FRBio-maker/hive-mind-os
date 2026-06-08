@@ -119,6 +119,7 @@ files; you wire the remaining pieces once you have them.
 | [docs/human-in-the-loop.md](docs/human-in-the-loop.md) | Relay setup guide |
 | [docs/hygiene.md](docs/hygiene.md) | Session hygiene rules — what to capture, what to skip |
 | [docs/multi-runtime.md](docs/multi-runtime.md) | Cross-runtime coordination patterns |
+| [docs/executor-tier.md](docs/executor-tier.md) | Local-model executor tier — decision-free grunt-work layer beneath the agents |
 | [config-templates/](config-templates/) | Starter configs for each runtime |
 | [permissions/](permissions/) | Per-runtime permission rule files |
 | [wiki-template/](wiki-template/) | SCHEMA.md + scaffold scripts for a new vault |

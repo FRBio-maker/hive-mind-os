@@ -26,3 +26,12 @@ id_ed25519
 *.credentials.json
 .credentials.json
 *.secret
+secrets.json
+credentials.json
+
+# Companion-tool schemas — not part of this template (security sweep, 2026-06-07)
+mcps/
+
+# Defensive artifact classes flagged by the cross-family sweep
+*.log
+*.bak

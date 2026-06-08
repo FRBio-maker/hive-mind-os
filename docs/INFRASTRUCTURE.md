@@ -471,6 +471,7 @@ symlink (or merge target), not a copy.
 | Tooling repo | hooks, custom bins, routing.toml, shared skills, plugin metadata | the **executables** layer — runnable code shared across agents; lives in a separate repo from this one |
 | Knowledge-graph vault | wiki vault — topic hubs, clusters, sources | the **knowledge** layer — semantic memory; this repo ships a starter template under `wiki-template/` |
 | `approval-relay` | daemon, adapters, mailbox protocol, systemd units | the **human-in-the-loop** layer |
+| Local model server | tuned launch config for a local GGUF server (weights/build not versioned) | the **executor** layer — decision-free local grunt work; companion, pattern in `docs/executor-tier.md` |
 
 ## Per-agent surface area (what each runtime exposes)
 
