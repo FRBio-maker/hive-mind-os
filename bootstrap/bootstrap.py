@@ -12,8 +12,11 @@ Behavior
 - Skips existing destination files unless --force is passed.
 - With --force, an existing dest is moved to <dest>.bak.<YYYYMMDD-HHMMSS>
   BEFORE the new symlink/copy is written — never destroys data.
-- --rollback removes each installed symlink/file and restores the most recent
-  <dest>.bak.<timestamp> if one exists.
+- --rollback restores the most recent <dest>.bak.<timestamp> if one exists;
+  with no backup, it removes the dest only when it can PROVE we installed it
+  (a symlink pointing into this repo). A COPY-installed file with no backup is
+  left in place — we can't distinguish it from a user's hand-written file, and
+  we never delete what we can't prove we created. Remove such copies manually.
 
 Planned installs
 -----------------

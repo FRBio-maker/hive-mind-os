@@ -19,7 +19,7 @@ joining and how to behave once you are in.
 ## §0 — What you are joining
 
 This machine runs a small fleet of AI coding agents (today: Claude Code, Codex
-CLI, Gemini CLI) across one or more operating systems. They are not independent.
+CLI, Gemini CLI, Grok CLI) across one or more operating systems. They are not independent.
 They share one set of **rules**, one set of **executables**, one **knowledge
 base**, and one **human-in-the-loop channel** — each versioned in its own
 repository and symlinked into every runtime so behaviour stays consistent no
@@ -32,7 +32,7 @@ logical machine** when both are in play.
 
 | Repo | Role | What it holds |
 |---|---|---|
-| **hive-mind-os** (this repo) | **RULES** | Identity files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`), permission excerpts, and the protocol docs in `docs/`. This is the source of truth for *how every agent behaves at session start*. |
+| **hive-mind-os** (this repo) | **RULES** | Identity files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `GROK.md`), permission excerpts, and the protocol docs in `docs/`. This is the source of truth for *how every agent behaves at session start*. |
 | **Tooling repo** | **EXECUTABLES** | Session hooks, helper binaries, `routing.toml` (delegation rules), and skills shared across agents. This is *code* — it has tests. Lives in a separate companion repository, not shipped inside this repo. |
 | **Knowledge-graph repo** | **KNOWLEDGE** | The curated wiki vault at `<vault>/` — typed knowledge nodes, topic hubs, clusters, and `SCHEMA.md`. Curated, walkable, no execution. This repo ships a starter template under `wiki-template/`. |
 | **approval-relay** | **HUMAN-IN-THE-LOOP** | A daemon + per-agent adapters that let any agent ask the human for approval or a decision (e.g. over Telegram), and block until they answer. **Not included in this template — bring or build your own.** The relay pattern is documented in `docs/human-in-the-loop.md`. |
@@ -81,10 +81,11 @@ another out-of-band channel). Deeper map: `docs/permissions-protocol.md`.
 ### Who orchestrates whom
 
 Claude Code (Opus) is the **orchestrator** — it holds the plan and delegates
-scoped tasks to specialists. Codex CLI and Gemini CLI are **specialists** —
-Codex for terminal-agentic grinds and surgical edits, Gemini for large-context
-cross-file work. Routing lives in `<tooling-repo>/routing.toml`, dispatched via
-the `delegate-external` skill.
+scoped tasks to specialists. Codex CLI, Gemini CLI, and Grok CLI are
+**specialists** — Codex for terminal-agentic grinds and surgical edits, Gemini
+for large-context cross-file work, Grok for live web research and best-of-N
+parallel attempts. Routing lives in `<tooling-repo>/routing.toml`, dispatched
+via the `delegate-external` skill.
 
 **Figure out where you fit:** if you are a strong generalist planner, you may
 act as an orchestrator peer. If you are best at a narrow task class, you are a
@@ -100,8 +101,8 @@ if you want the complete picture before wiring in.
 
 Pick the one that matches you:
 
-- **You are Claude Code, Codex CLI, or Gemini CLI**, just on a machine that is
-  not wired up yet → **§2 (Known runtime)**. There is already a canonical
+- **You are Claude Code, Codex CLI, Gemini CLI, or Grok CLI**, just on a machine
+  that is not wired up yet → **§2 (Known runtime)**. There is already a canonical
   identity file for you in this repo and a script that links it in.
 - **You are a different runtime** (e.g. Cursor, GitHub Copilot CLI, Aider, or a
   custom agent) with no identity file here yet → **§3 (New runtime)**. You will
@@ -114,7 +115,7 @@ Pick the one that matches you:
 
 ---
 
-## §2 — Known runtime (Claude / Codex / Gemini)
+## §2 — Known runtime (Claude / Codex / Gemini / Grok)
 
 A canonical identity file already exists for you. Linking it in is two steps.
 
@@ -139,14 +140,16 @@ bash <your-home>/hive-mind-os/bootstrap/setup-linux.sh    # Linux / WSL
 #    coreutils in any companion bash, no WSL) you must account for.
 ```
 
-**Before you run it, tell the human exactly what it will change** (run
-`bash bootstrap/setup-linux.sh` with no flags — it prints the dry-run plan of
-which identity files it will symlink, and writes nothing) and wait for their
-go-ahead. This is the first state-changing command — confirm it.
+**Before you run it, tell the human exactly what it will change** (run your
+OS's setup script with no flags — it prints the dry-run plan of which identity
+files it will symlink, and writes nothing) and wait for their go-ahead. This is
+the first state-changing command — confirm it.
 
-After it runs, your identity file and settings now write *through* to the repo.
-`git commit` captures changes; `git push` distributes them. Roll back any time
-with `bash bootstrap/setup-linux.sh --rollback`.
+After it runs, your **identity file** writes *through* to the repo:
+`git commit` captures changes; `git push` distributes them. (Settings and
+permissions do **not** — those are a separate manual merge into your live
+config; see `permissions/README.md`.) Roll back any time by re-running your
+OS's setup script with `--rollback`.
 
 Then jump to **§4** — the house rules apply to you too — and verify with **§5**.
 
