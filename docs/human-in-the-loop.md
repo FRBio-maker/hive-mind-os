@@ -136,10 +136,15 @@ return 0
 
 | Failure | Correct behavior |
 |---|---|
-| Relay backend unreachable | Fall back to terminal prompt. Never block forever. |
+| Relay backend unreachable | Fall back to an in-terminal prompt. **There is no fallback *messaging* channel** — if no human is at the terminal either, the request blocks until timeout, then resolves DENY. |
 | Human does not respond within timeout | `approval` → DENY; `question` → surface in terminal at next opportunity. |
 | Idle-detection API unavailable | Treat as present (conservative default). |
 | AFK flag state unknown at startup | Default to present until the human explicitly sets `/afk`. |
+
+The timeout length is a deployment choice: a short window (minutes) fails safe to
+DENY fast; the reference deployment uses a long window (~23h) so a delayed human
+can still approve, at the cost of a longer block. Either way the request is
+bounded — it never silently auto-approves.
 
 The guiding principle: **default to the restrictive side**. A missed notification
 is recoverable. An auto-approved destructive action may not be.

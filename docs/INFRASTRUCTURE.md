@@ -4,7 +4,7 @@
 > of how the cross-agent stack interlocks. Four runtimes (Claude / Codex /
 > Gemini / Grok) on two OSes (Linux WSL + Windows) are unified via symlinks into four
 > canonical GitHub repos — rules, executables, knowledge, human-in-the-loop.
-> Memory is three core layers (plus an optional working-memory adjunct), requests
+> Memory is three durable layers plus an always-on working-memory layer (context-mode), requests
 > flow through a permission pipeline that escalates to a relay for human approval,
 > and the orchestrator delegates to specialists via `routing.toml`.
 
@@ -171,10 +171,10 @@ side.
 
 ---
 
-## 3. Memory architecture — three core layers (plus working-memory adjunct)
+## 3. Memory architecture — three durable layers + the working-memory layer
 
 How memory feeds the agent. Three injection sources fire at session start;
-context-mode sits beside the agent for token-economy.
+context-mode runs alongside the agent every session for token-economy.
 
 ```mermaid
 flowchart LR
@@ -191,7 +191,7 @@ flowchart LR
 
     AC["Agent Context<br/>(attention window)"]
 
-    subgraph WM[Working-memory adjunct]
+    subgraph WM[Working-memory layer]
         CTX["context-mode<br/>(MCP sandbox)<br/>offloads large outputs"]
     end
 
@@ -239,7 +239,7 @@ flowchart TD
     RelaySafety -->|YES| Relay([See Panel 5<br/>approval sequence])
     RelaySafety -->|NO| Terminal["Fall back to<br/>in-terminal prompt"]
 
-    Relay --> Timeout{User responds<br/>within 5 min?}
+    Relay --> Timeout{User responds<br/>within timeout?}
     Timeout -->|YES Approve| Proceed([Tool call proceeds])
     Timeout -->|YES Deny| Abort([Tool call aborts])
     Timeout -->|NO timeout| Abort
@@ -293,7 +293,7 @@ sequenceDiagram
         Bot-->>Daemon: callback_query
         Daemon->>MBox: write &lt;id&gt;.reply<br/>(approved=false)
         Adapter-->>Agent: abort tool call
-    else Timeout (default 5 min)
+    else Timeout (configurable; ref ~23h)
         Note over Daemon: no callback received
         Daemon->>MBox: write &lt;id&gt;.reply<br/>(approved=false, reason=timeout)
         Adapter-->>Agent: abort tool call (DENY)
@@ -337,13 +337,16 @@ flowchart TD
     DEL --> Route{Routing rule}
     Route -->|terminal-agentic grind,<br/>surgical edits| WCX["delegate-codex<br/>(bash wrapper,<br/> Win: .cmd bridge)"]
     Route -->|long-context,<br/>cross-file features| WGM["delegate-gemini<br/>(bash wrapper,<br/> Win: .cmd bridge)"]
+    Route -->|live web research,<br/>best-of-N parallel| WGK["grok (native,<br/> no wrapper)"]
     Route -->|cheap parallel cleanup| WCX
 
     WCX --> CXR["Codex CLI exec"]
     WGM --> GMR["Gemini CLI exec"]
+    WGK --> GKR["Grok CLI"]
 
     CXR --> Result([Result returned])
     GMR --> Result
+    GKR --> Result
     Result --> Review["Opus reviews,<br/>integrates,<br/>surfaces decisions"]
 
     SH -. used by .-> OPUS
@@ -362,7 +365,10 @@ flowchart TD
 **Why bash wrappers and not in-Claude tool calls:** Codex / Gemini run as their
 own processes with their own permission models and sandboxes. The wrappers
 (`delegate-codex`, `delegate-gemini` — and `.cmd` bridges on Windows) provide a
-single stable interface that survives version bumps in either CLI.
+single stable interface that survives version bumps in either CLI. **Grok has no
+wrapper** — it is driven natively (`grok -p` / `--prompt-file`), because the same
+`.cmd`→WSL bridge the others use is unreliable on some Windows setups; read-only
+dispatches are made safe by allowing only read tools and stripping mutating ones.
 
 ---
 

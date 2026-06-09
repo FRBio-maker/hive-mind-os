@@ -174,6 +174,13 @@ specifics to whatever tools you actually run.
    ideally shared across all agents in your fleet. The
    autobiographical record. Storage substrate, not structure.
 
+4. Working memory (token-economy). A context-offload tool (such as
+   context-mode) that holds large tool outputs in a searchable
+   sandbox instead of your attention window. Not durable across
+   sessions — it manages context budget, not long-term memory — but
+   an active part of every session, not optional. Promote durable
+   findings up into layers 1–3.
+
 Retrieval is cued, not eager. When the current task has a topic
 anchor that may have prior work, query the episodic layer explicitly.
 Don't assume the relevant memory will have been volunteered. Treat it

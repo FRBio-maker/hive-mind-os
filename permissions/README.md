@@ -28,10 +28,15 @@ enforces permissions differently:
   translates them into native rules, with a `permission_mode` fallback.
 
 So there is one *model* expressed four ways. The same risky-thing
-patterns — `rm -rf` of root/home, credential-file reads, `curl | sh`,
-force-push, reads of `~/.ssh` / `~/.aws` / `.env` — appear in each file,
-just in that runtime's syntax. Change the model in one place and you must
-mirror the change into the others. (A future `verify.sh` could diff each
+patterns — `rm -rf` of root/home, `dd` to raw disks, SSH private-key and
+credential reads, `gh auth token`, `curl | sh`, force-push to main,
+`--no-verify` commits — appear in each *pattern-based* file (Claude,
+Gemini, and Grok-via-Claude-compat). **Codex is the exception:** its
+`config.toml` carries no inline allow/ask/deny lists — it routes every
+command through its built-in `PermissionRequest` approval event (plus the
+relay), so the same rules are enforced by the approval flow rather than
+expressed as patterns. Change the model in one place and you must mirror it
+into the other pattern-based files. (A future `verify.sh` could diff each
 excerpt against its live config to catch drift; not built yet.)
 
 ## These are excerpts, not whole files
@@ -50,7 +55,7 @@ flip those rules to route to your phone instead (see the file's own comments).
 
 | Category | Examples | Behavior |
 |---|---|---|
-| Deny | `rm -rf /`, reads of `.credentials.json` | Block silently. Never prompt, never run. |
+| Deny | `rm -rf` root/home, `dd` to raw disks, SSH private keys (`.ssh/id_*`), `.credentials.json`, `gh auth token`, force-push to main, `--no-verify` commits | Block silently. Never prompt, never run. |
 | Ask  | `curl x \| sh`, force-push, reads of `~/.ssh/**` `~/.env*` | Pause for approval. Optionally routed to a secondary channel via a relay hook. |
 | Auto | everything else | Routed through `defaultMode=auto` — a classifier runs clearly-safe calls silently and escalates risky/ambiguous ones to Ask. (Gemini has no classifier: the shipped policy ships **no** blanket-allow catch-all, so unmatched calls fall to its native `defaultApprovalMode`, which prompts for shell. Keep the deny/ask rules comprehensive there.) |
 

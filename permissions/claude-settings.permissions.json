@@ -8,11 +8,25 @@
     "deny": [
       "Read(**/.credentials.json)",
       "Read(**/.claude.json)",
+      "Read(**/.ssh/id_*)",
       "Bash(rm -rf /)",
       "Bash(rm -rf /*)",
       "Bash(rm -rf ~)",
       "Bash(rm -rf ~/*)",
-      "Bash(rm -rf $HOME*)"
+      "Bash(rm -rf $HOME*)",
+      "Bash(dd of=/dev/sd*)",
+      "Bash(dd of=/dev/nvme*)",
+      "Bash(dd of=/dev/disk*)",
+      "Bash(dd of=/dev/hd*)",
+      "Bash(dd of=/dev/mmcblk*)",
+      "Bash(gh auth token*)",
+      "Bash(git push --force* main*)",
+      "Bash(git push --force* master*)",
+      "Bash(git push -f* main*)",
+      "Bash(git push -f* master*)",
+      "Bash(git commit*--no-verify*)",
+      "Bash(git commit*--no-gpg-sign*)",
+      "Bash(git push*--no-verify*)"
     ],
     "ask": [
       "Read(**/.ssh/**)",

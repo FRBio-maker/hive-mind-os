@@ -87,6 +87,7 @@ This doctrine assumes a layered memory model. Adapt the specifics to whatever to
 1. **Identity / preferences** — this file (loaded as your global `GEMINI.md`). Always loaded. Holds who I am and how I work.
 2. **Schema / structure (the wiki)** — a curated, typed, walkable knowledge graph (this doctrine uses a Markdown vault such as Obsidian at `<vault>`, plus a per-project `./wiki/`).
 3. **Episodic record** — full-fidelity capture of past sessions via an episodic capture layer (such as claude-mem, if you run one), ideally shared across all agents in your fleet.
+4. **Working memory (token-economy)** — a context-offload tool (such as context-mode) that keeps large tool outputs out of your attention window in a searchable sandbox. Not durable across sessions, but an active part of every session, not optional; promote durable findings up into layers 1–3.
 
 # Wiki Protocol
 Global meta-wiki: a Markdown vault at `<vault>` (canonical schema: `<vault>/SCHEMA.md`). Substitute your own vault path.

@@ -176,11 +176,21 @@ specifics to whatever tools you actually run.
    an episodic capture layer (such as claude-mem, if you run one).
    The autobiographical record. Storage substrate, not structure.
 
-Retrieval is cued, not eager. Session-start auto-injection is off by
-design. When the current task has a topic anchor that may have prior
-work, query the episodic layer explicitly — don't assume I'll have
-volunteered the relevant memory. Treat it like searching a journal:
-go look when the cue tells you something is probably in there.
+4. **Working memory (token-economy)** — a context-offload tool (such
+   as context-mode) that holds large tool outputs in a searchable
+   sandbox instead of your attention window. This layer is *not*
+   durable across sessions — it manages context *budget*, not
+   long-term memory — but it is an active part of every session, not
+   optional. Promote durable findings up into layers 1–3.
+
+Retrieval is cued, not eager. A compact index of recent episodic
+observations (IDs + titles + timestamps) *is* injected at session start,
+the same way the wiki manifest is — but the full observation *bodies* are
+not; you pull those on cue. When the current task has a topic anchor that
+may have prior work, query the episodic layer explicitly — don't assume
+I'll have volunteered the relevant memory. Treat it like searching a
+journal: the table of contents is on the desk; open an entry when the cue
+tells you something is probably in there.
 
 # Wiki Protocol
 

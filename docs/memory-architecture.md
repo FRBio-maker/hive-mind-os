@@ -1,6 +1,6 @@
 # Memory Architecture
 
-Three core layers, modeled on how human memory actually works, plus a working-memory adjunct. They are **not redundant** — each plays a different role. Use the right layer for the right job.
+Three durable layers, modeled on how human memory actually works, plus an always-in-operation working-memory layer. They are **not redundant** — each plays a different role. Use the right layer for the right job.
 
 ## The three layers
 
@@ -34,12 +34,12 @@ Edge types and node taxonomy are formalized in `<vault>/SCHEMA.md` (17 node type
 
 Retrieval of episodic **content** is **cued, not eager**. One nuance to be precise about: a **compact digest** of recent observations (IDs + titles + timestamps — a navigation index, not the content) *is* injected at session start, the same way the wiki manifest is. What is **off by design** is auto-injection of the full observation *bodies* — those you pull explicitly when a topic anchor suggests prior work might exist (use a `mem-search` skill or equivalent tool). Treat it like a journal whose table of contents sits on the desk: the index is in front of you; you open the actual entry only when a cue tells you it's worth reading.
 
-### Adjunct: Token-economy (context-mode)
+### The working-memory layer (context-mode)
 
 **Where:** Context-mode MCP server (runs alongside the agent).
 **Behavior:** Offloads large tool outputs (build logs, large file reads, browser snapshots) to a sandbox so they don't fill the agent's context window. Provides search and execute primitives over the sandbox.
 
-This is not a fourth peer layer — it is a **working-memory adjunct**. It manages what fits in the agent's active context window, not what gets remembered across sessions. Pairs with the three core layers: routine outputs go to context-mode, durable findings get promoted to the wiki vault, identity-shaping observations get auto-memory entries.
+This is a different *kind* of layer from the three above — it holds **working memory** (what fits in the active context window), not durable cross-session memory. But it is a **first-class, always-in-operation part of the stack, not an optional add-on**: large outputs route through it every session via a tool hook. Pairs with the three durable layers: routine outputs go to context-mode, durable findings get promoted to the wiki vault, identity-shaping observations get auto-memory entries.
 
 ## Layer-selection rules
 
@@ -65,7 +65,7 @@ This rule applies even when the user explicitly asks to save — if they want to
 
 ## Why three core layers and not one big bag
 
-Different lifecycles, different access patterns, different content shapes. Mixing them creates either token-explosion (loading everything every time) or retrieval failure (the right memory exists but the wrong layer is searched). Human memory works this way for the same reason — semantic / episodic / procedural memory are anatomically distinct in the brain. The token-economy adjunct is a working-memory tool, not a fourth storage layer; it manages context budget, not durable knowledge.
+Different lifecycles, different access patterns, different content shapes. Mixing them creates either token-explosion (loading everything every time) or retrieval failure (the right memory exists but the wrong layer is searched). Human memory works this way for the same reason — semantic / episodic / procedural memory are anatomically distinct in the brain. The working-memory layer (context-mode) is counted separately because it is a different *kind* of memory — always in operation, but managing context budget within a session rather than durable knowledge across sessions. A separate kind, not an optional one.
 
 ## Cross-references
 

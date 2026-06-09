@@ -120,8 +120,9 @@ retraining each one on your conventions:
   tasks inside a single repo.
 - **Gemini CLI** — large-context cross-file work where holding the whole
   codebase in view at once matters.
-- **Grok** — tasks where a fast, lightweight pass suffices and Claude / Codex /
-  Gemini are overkill.
+- **Grok** — live web research and current-information lookups (its built-in
+  web search is a real edge over the other three), plus best-of-N parallel
+  attempts where trying a problem several ways beats one careful pass.
 
 When all four share the same protocol text, a task handed from one to another
 does not require a re-briefing. The receiving runtime already knows the wiki

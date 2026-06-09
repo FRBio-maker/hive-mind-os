@@ -98,6 +98,12 @@ tools you actually run:
    *your* sessions — so your durable trail goes two other ways: file
    curated decisions/patterns into the wiki (Doer mode, below), and
    use your own cross-session memory (item 1) for raw recall.
+4. **Working memory (token-economy)**: a context-offload tool (such
+   as context-mode) that holds large tool outputs in a searchable
+   sandbox instead of your attention window. Not durable across
+   sessions — it manages context budget, not long-term memory — but
+   an active part of every session, not optional. Promote durable
+   findings up into layers 1–3.
 
 Retrieval is cued, not eager: when a task has a topic anchor that may
 have prior work, query the episodic layer explicitly. Treat it like a

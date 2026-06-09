@@ -68,11 +68,13 @@ Dangerous operations don't slip through, and routine work isn't interrupted.
 ### DENY — hard block (silent)
 
 Some operations are blocked unconditionally, with no relay escalation:
-- Apocalypse commands: `rm -rf /`, `dd of=/dev/sda`, anything targeting the
-  root filesystem or raw devices
-- Auth-token reads: `~/.ssh/id_*`, `gh auth token`, cloud credential files,
-  API key stores
-- `git push --force` to the main/master branch
+- Apocalypse commands: `rm -rf /`, `dd of=/dev/sd*` (and other raw disk
+  devices), anything targeting the root filesystem or raw devices
+- Auth-token reads: SSH private keys (`~/.ssh/id_*`), `gh auth token`, and
+  credential stores like `.credentials.json`. (Credential-*adjacent* reads —
+  `.env`, `~/.aws`, `~/.npmrc`, `~/.kube/config` — are **ASK**, not deny, so a
+  legitimate read can be approved rather than hard-blocked.)
+- `git push --force` to the main/master branch (non-main force pushes are ASK)
 - Commits with `--no-verify` or `--no-gpg-sign` without explicit human
   authorization
 
@@ -103,14 +105,18 @@ without lowering the security floor.
 ## Timeout-to-deny safety
 
 When an ASK escalates to the relay and the user does not respond within the
-configured timeout (default: 5 minutes), the decision resolves as **DENY**
-automatically. The agent never silently auto-approves a timed-out request. This
-prevents unbounded blocking — the agent receives a deny and can report back to
-the user that the operation was not approved.
+configured timeout, the decision resolves as **DENY** automatically. The agent
+never silently auto-approves a timed-out request. The timeout length is a
+deployment choice: a short window (minutes) fails safe to DENY quickly; a long
+window — the reference deployment uses ~23 hours — keeps the request open so a
+delayed human can still approve, at the cost of a longer block. Either way the
+request is bounded and resolves to DENY if unanswered.
 
 If the relay itself is unreachable (daemon down, notification API unavailable),
 the agent falls back to an in-terminal prompt rather than blocking indefinitely
-or defaulting to allow.
+or defaulting to allow. Note there is **no fallback *messaging* channel** — the
+terminal fallback only helps if a human is actually at the terminal. A
+truly-AFK agent whose relay is down will block until the timeout, then DENY.
 
 ## Agents must not self-modify the permission surface
 

@@ -5,6 +5,9 @@
 > across Claude Code, Codex CLI, Gemini CLI, and Grok. Not a Python project;
 > a small Python toolkit supports a system whose primary medium is text.
 
+**New here?** Read **[START-HERE.md](START-HERE.md)** first — what you get vs.
+what you wire, in one page.
+
 ## What this is
 
 `hive-mind-os` is an **operating doctrine** — a set of markdown files and
@@ -39,9 +42,11 @@ What the system provides:
 lives in plain files that any editor, diff tool, or agent can read without a
 runtime dependency. Code is only introduced when markdown is insufficient.
 
-**Cross-runtime by design.** No agent is privileged. Claude, Codex, Gemini, and
-Grok share the same wiki, the same permission pipeline, and the same house
-rules. Identity files differ by runtime; the operating doctrine does not.
+**Cross-runtime by design.** No agent's *rules or memory* are privileged:
+Claude, Codex, Gemini, and Grok share the same wiki, the same permission
+pipeline, and the same house rules. Claude takes the orchestrator role, but
+that's a division of labor, not a privileged ruleset. Identity files differ by
+runtime; the operating doctrine does not.
 
 **Summary-first traversal.** The wiki graph is *walked*, not flooded. Agents
 read cluster summaries before nodes, node summaries before detail. Context
@@ -113,7 +118,7 @@ files; you wire the remaining pieces once you have them.
 |---|---|
 | [ONBOARDING.md](ONBOARDING.md) | Agent-facing walkthrough — read this before acting |
 | [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Seven-diagram architecture reference |
-| [docs/memory-architecture.md](docs/memory-architecture.md) | The three-layer memory model (+ working-memory adjunct) — and when to use each |
+| [docs/memory-architecture.md](docs/memory-architecture.md) | The three durable memory layers + the always-on working-memory layer — and when to use each |
 | [docs/wiki-protocol.md](docs/wiki-protocol.md) | Wiki traversal protocol — summary-first graph walk |
 | [docs/permissions-protocol.md](docs/permissions-protocol.md) | Permission pipeline and human-in-the-loop detail |
 | [docs/human-in-the-loop.md](docs/human-in-the-loop.md) | Relay setup guide |

@@ -53,7 +53,7 @@ logical machine** when both are in play.
 
 ### The memory layers
 
-You have three core memory layers plus an optional working-memory adjunct, each with a distinct job. Do not treat them as interchangeable.
+You have three durable memory layers plus an always-on working-memory layer, each with a distinct job. Do not treat them as interchangeable.
 
 1. **Auto-memory** — small, deterministic, *always loaded*. "Who the user is,
    how they work." Lives at `~/.claude/projects/.../memory/` (Claude's home;

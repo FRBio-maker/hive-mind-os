@@ -17,6 +17,41 @@ commandRegex = "rm -rf (\\/|\\/\\*|~|~\\/\\*|\\$HOME.*)"
 decision = "deny"
 priority = 900
 
+[[rule]]
+toolName = "read_file"
+argsPattern = '"file_path":\s*".*/\\.ssh/id_[^"]*"'
+decision = "deny"
+priority = 900
+denyMessage = "Reading SSH private keys is forbidden."
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "dd .*of=/dev/(sd|nvme|disk|hd|mmcblk).*"
+decision = "deny"
+priority = 900
+denyMessage = "Writing to raw disk devices is forbidden."
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "gh auth token.*"
+decision = "deny"
+priority = 900
+denyMessage = "Reading the GitHub auth token is forbidden."
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "git push (--force|-f)\\b.*\\b(main|master)\\b.*"
+decision = "deny"
+priority = 900
+denyMessage = "Force-pushing to main/master is forbidden."
+
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "git (commit|push).*(--no-verify|--no-gpg-sign).*"
+decision = "deny"
+priority = 900
+denyMessage = "Bypassing commit hooks/signing requires explicit human action."
+
 # 2. ASK rules: prompt before risky reads/commands. SAFE DEFAULT = prompt in
 # the terminal (decision="ask_user"). If you wire an approval relay (see
 # ../../docs/human-in-the-loop.md), flip these to decision="allow" so the
