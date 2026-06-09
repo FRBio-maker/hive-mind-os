@@ -130,9 +130,13 @@ git clone git@github.com:<your-username>/hive-mind-os.git   # skip if present
 #    replacing it with a symlink into the repo. Nothing is destroyed; rollback
 #    is one flag away. Run it with no flags first — that prints the plan and
 #    writes nothing.
-bash <your-home>/hive-mind-os/bootstrap/setup-linux.sh
+bash <your-home>/hive-mind-os/bootstrap/setup-macos.sh    # macOS
+bash <your-home>/hive-mind-os/bootstrap/setup-linux.sh    # Linux / WSL
 #    On Windows, from an elevated PowerShell:
 #    cd <your-home>\hive-mind-os\bootstrap ; .\setup-windows.ps1
+#    On macOS: symlinks need NO privilege (unlike Windows). Read the header of
+#    setup-macos.sh first — it lists the Mac landmines (python3 stub, BSD-vs-GNU
+#    coreutils in any companion bash, no WSL) you must account for.
 ```
 
 **Before you run it, tell the human exactly what it will change** (run

@@ -30,6 +30,13 @@ Windows. All eight runtimes pull rules + executables from the same canonical
 GitHub repos via symlinks, so identity / hooks / skills stay consistent across
 OSes.
 
+> **Adopting on macOS?** This diagram is the *author's* rig (Linux WSL +
+> Windows). The doctrine is OS-agnostic: macOS is native Unix, so it follows the
+> Linux path directly — `bash bootstrap/setup-macos.sh`, native symlinks with no
+> privilege needed, and **no WSL**. The Mac-specific divergences (python3 stub,
+> BSD-vs-GNU coreutils in companion scripts, Metal-accelerated executor tier) are
+> documented in the header of `bootstrap/setup-macos.sh`.
+
 ```mermaid
 flowchart TB
     USER([User<br/>terminal + phone])

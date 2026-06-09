@@ -30,11 +30,12 @@ What the system provides:
 - **Human-in-the-loop.** When no one is at the keyboard, agents send approval
   requests out-of-band (phone relay) and block until answered. They never
   silently proceed with irreversible actions.
-- **Bootstrap installer.** `bootstrap/setup-linux.sh` and
-  `bootstrap/setup-windows.ps1` copy or symlink the four **identity files** into
+- **Bootstrap installer.** `bootstrap/setup-macos.sh`, `setup-linux.sh`, and
+  `setup-windows.ps1` copy or symlink the four **identity files** into
   the right runtime directories in one command. It does **only** the identity
   files — merging permission excerpts and symlinking the companion tooling are
-  separate steps (see ONBOARDING.md).
+  separate steps (see ONBOARDING.md). (macOS and Linux behave the same — native
+  symlinks, no privilege needed; only Windows may fall back to copies.)
 
 ## Philosophy
 
@@ -67,12 +68,14 @@ git clone https://github.com/<your-username>/hive-mind-os.git ~/hive-mind-os
 cd ~/hive-mind-os
 
 # 2. Run the bootstrap installer (dry-run first — prints plan, writes nothing)
-bash bootstrap/setup-linux.sh
+bash bootstrap/setup-macos.sh      # macOS
+bash bootstrap/setup-linux.sh      # Linux
 # On Windows (PowerShell):
 #   pwsh bootstrap/setup-windows.ps1
 
 # 3. Apply when you are happy with the plan
-bash bootstrap/setup-linux.sh --apply
+bash bootstrap/setup-macos.sh --apply      # macOS
+bash bootstrap/setup-linux.sh --apply      # Linux
 # pwsh bootstrap/setup-windows.ps1 --apply
 
 # 4. Edit your identity

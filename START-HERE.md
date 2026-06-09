@@ -39,9 +39,11 @@ Meet the contract with whatever you already have.
 
 You do **not** need all four companions to start. Minimum viable adoption:
 
-1. **Install the rules.** `bash bootstrap/setup-linux.sh` (dry-run first; `--apply`
-   when happy). This symlinks the identity files into your agent runtimes — your
-   agents now share the same house rules. *Works day one.*
+1. **Install the rules.** `bash bootstrap/setup-macos.sh` (macOS) or
+   `setup-linux.sh` (Linux), or `pwsh bootstrap/setup-windows.ps1` (Windows) —
+   dry-run first; `--apply` when happy. This symlinks the identity files into
+   your agent runtimes — your agents now share the same house rules.
+   *Works day one.*
 2. **Scaffold a vault.** `python3 wiki-template/scripts/scaffold.py --vault <path>`.
    You now have a knowledge graph + the manifest the agents walk.
 3. **Merge the permissions.** Hand-merge `permissions/` excerpts into each agent's

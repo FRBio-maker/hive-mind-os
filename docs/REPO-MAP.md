@@ -48,6 +48,7 @@ hive-mind-os/
 ├── bootstrap/                ── INSTALL: wire identity files into runtime dirs ──
 │   ├── bootstrap.py          ← cross-platform installer (dry-run default; the
 │   │                            symlink/copy + backup + rollback state machine)
+│   ├── setup-macos.sh        ← per-OS entry point (macOS; landmine notes in header)
 │   ├── setup-linux.sh        ← per-OS entry point (Linux/WSL)
 │   ├── setup-windows.ps1     ← per-OS entry point (Windows)
 │   └── test_bootstrap.py     ← pytest suite for the installer
