@@ -81,6 +81,22 @@ This will permanently remove the listed artifacts.
 The header (`prompt` + `context`) and each option's `description` must both
 travel to the phone.
 
+### Redact secrets before anything leaves the box
+
+The payload that travels to the phone is, by construction, the *content of a
+risky action* — a command line, a file path, sometimes a file excerpt. That
+content can embed credentials (a token in a `curl` header, a connection string
+in an env assignment). Your messaging backend (Telegram, Slack, ...) is an
+**external service**: whatever you send may be stored on someone else's
+infrastructure indefinitely.
+
+So the relay must run a redaction pass over every outbound payload — pattern
+match for token/key/password shapes (long high-entropy strings, `Bearer ...`,
+`key=...`, PEM blocks) and replace them with placeholders **before** the send,
+on your side of the wire. The human approving "run this curl command" doesn't
+need the token's value to decide; they need to know a token is being sent and
+to where.
+
 ---
 
 ## Presence gate
@@ -148,6 +164,29 @@ bounded — it never silently auto-approves.
 
 The guiding principle: **default to the restrictive side**. A missed notification
 is recoverable. An auto-approved destructive action may not be.
+
+### The relay needs its own dead-man's switch
+
+The relay is the component that fails *worst* silently: if its daemon, its
+presence watcher, or the bridge they run over wedges, the human stops
+receiving requests — and from their phone, "no notifications" looks identical
+to "the agents don't need me." The reference deployment found its presence
+watcher had been dead for **25 hours** (its scheduled task only triggered at
+logon; the process was killed and nothing restarted it).
+
+Two fixes, both required:
+
+1. **Restart paths for every relay component** — run-on-schedule keep-alive
+   triggers plus restart-on-failure, not just run-at-logon.
+2. **An independent dead-man's switch** — a separate, minimal watchdog on a
+   different mechanism (different scheduler entry, different runtime, no
+   shared bridge) that checks the relay's heartbeat file and daemon liveness,
+   and pages the human *directly* through the messaging API when they go
+   stale. It must not depend on any component it monitors.
+
+The generalization: anything that gates approvals needs a liveness alarm that
+does not share its failure modes. A watchdog that dies with its ward is
+decoration.
 
 ---
 

@@ -102,6 +102,21 @@ any explicit rule:
 known-safe patterns into the explicit allowlist, trimming phone interruptions
 without lowering the security floor.
 
+## Ask-list-first
+
+When designing the rule set itself, prefer an **explicit ask-list** as the
+primary architecture over "broad allow + narrow deny." The difference is which
+direction mistakes fail:
+
+- Broad-allow + narrow-deny: any *gap* in your deny list is a silent permit.
+- Ask-list-first: the safe path is the *prompted* path — a gap costs you an
+  extra approval tap, not an unreviewed action.
+
+Grow the allow-list from evidence (patterns you actually approved repeatedly),
+not from anticipation. This composes with `defaultMode=auto`: explicit ask
+rules for the risk classes you know about, the classifier for the ones you
+didn't think of, and a slowly-earned allow-list underneath both.
+
 ## Timeout-to-deny safety
 
 When an ASK escalates to the relay and the user does not respond within the
@@ -140,6 +155,25 @@ In practice: avoid wrapping known-safe Bash commands in cosmetic `$()` just for
 string interpolation or convenience. The subexpression triggers a prompt even
 when the underlying command is on the allowlist. Rewrite to avoid `$()` where
 you want silent execution, or accept the prompt.
+
+## Wrapper tunneling — rules must see through shells
+
+If your relay adapter (or any custom rule layer) matches rules against the
+*outer* command string, every rule is trivially bypassed by wrapping:
+`bash -c '<risky>'`, `wsl -e sh -c '<risky>'`, `/bin/bash -c '<risky>'`
+(absolute-path shells escape name-based matching), prefix launchers
+(`sudo`/`env`/`nohup`/`setsid <risky>` — including a launcher wrapping a
+non-shell command directly), and command substitution (`$(<risky>)`,
+`` `<risky>` ``). The reference implementation closed each of these
+individually, found late, after review — treat this list as the *starting*
+test suite for your own adapter, and make unrecognized wrapper forms
+**fail to ASK**, never to allow.
+
+Be honest about the ceiling: a static command parser stops accidents and naive
+injection, not a determined adversary — there are always more encodings. The
+hard floor underneath it is the runtime's own gates plus OS-level separation
+(don't let agent processes read the relay's credentials; see
+`docs/human-in-the-loop.md`).
 
 ## Per-agent implementation notes
 

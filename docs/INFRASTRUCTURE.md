@@ -346,7 +346,7 @@ flowchart TD
 
     DEL --> Route{Routing rule}
     Route -->|terminal-agentic grind,<br/>surgical edits| WCX["delegate-codex<br/>(bash wrapper,<br/> Win: .cmd bridge)"]
-    Route -->|long-context,<br/>cross-file features| WGM["delegate-gemini<br/>(bash wrapper,<br/> Win: .cmd bridge)"]
+    Route -->|long-context, cross-file,<br/>frontend/UI| WGM["Gemini-family worker<br/>(wrapper/bridge per<br/> current runtime)"]
     Route -->|live web research,<br/>best-of-N parallel| WGK["grok (native,<br/> no wrapper)"]
     Route -->|cheap parallel cleanup| WCX
 

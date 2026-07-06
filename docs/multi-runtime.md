@@ -15,11 +15,31 @@ all four, and where the runtimes diverge.
 |---|---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/settings.json` | JSON |
 | Codex CLI | `~/.codex/AGENTS.md` | `~/.codex/config.toml` | TOML |
-| Gemini CLI | `~/.gemini/GEMINI.md` | `~/.gemini/settings.json` | JSON |
+| Gemini family (CLI or Antigravity) | `~/.gemini/GEMINI.md` | `~/.gemini/settings.json` | JSON |
 | Grok | *(reads `AGENTS.md`)* | — | — |
 
 Each runtime's identity file is the equivalent of this repo's `ONBOARDING.md`
 plus the shared protocol text — translated into whatever that runtime expects.
+
+## Runtimes die; identity files don't
+
+A worker CLI can disappear overnight for reasons that have nothing to do with
+you. It happened to this doctrine's reference fleet in 2026-06: the vendor shut
+the Gemini CLI's free tier (`IneligibleTierError` — an account/tier block, not
+a bug), and the CLI was dead the same day. The recovery took one session, not a
+rebuild, because of two properties worth preserving:
+
+- **The identity file is model-family-scoped, not binary-scoped.** `GEMINI.md`
+  conditioned the *model*; when a different runtime (Antigravity's `agy` CLI,
+  driving the same model family) replaced the dead CLI, the same identity file
+  was re-pointed and the worker rejoined the fleet with its conventions intact.
+- **The worker roster is data, not doctrine.** Which task class routes to which
+  worker lives in `routing.toml` (the tooling repo), not hardcoded in identity
+  files or docs. Swapping a runtime is a routing-table edit plus a dispatch
+  wrapper, not a doctrine rewrite.
+
+Design your fleet assuming any single vendor CLI can be revoked, repriced, or
+retired — because eventually one will be.
 
 ---
 
@@ -118,12 +138,48 @@ retraining each one on your conventions:
   anything requiring nuanced planning.
 - **Codex CLI** — terminal-agentic grinds, surgical edits, iteration-speed
   tasks inside a single repo.
-- **Gemini CLI** — large-context cross-file work where holding the whole
-  codebase in view at once matters.
+- **Gemini-family worker** — large-context cross-file work where holding the
+  whole codebase in view at once matters, and frontend/UI design (a routing
+  rule the reference fleet learned from evidence, not assumption — see the
+  telemetry section below).
 - **Grok** — live web research and current-information lookups (its built-in
   web search is a real edge over the other three), plus best-of-N parallel
   attempts where trying a problem several ways beats one careful pass.
 
+These rules of thumb are the *starting* table. The live table is
+`routing.toml` in your tooling repo — update it as evidence accumulates, and
+treat this doc's list as illustrative.
+
 When all four share the same protocol text, a task handed from one to another
 does not require a re-briefing. The receiving runtime already knows the wiki
 conventions, memory rules, and escalation paths.
+
+---
+
+## Delegation telemetry — closing the routing loop
+
+Routing rules rot unless something measures them. The pattern is two records
+per delegation, joined by a shared `run_id`:
+
+1. **`exec` record** — written *at dispatch* by the wrapper/skill that hands
+   the task to a worker: timestamp, worker, model, task class, brief summary,
+   `run_id`.
+2. **`outcome` record** — written *after review*, when the orchestrator has
+   integrated (or rejected) the result: success/failure, duration, rework
+   needed, optionally cost.
+
+Both are append-only JSONL. The join is what makes it useful:
+
+- `exec` with no `outcome` = **in-flight** (or abandoned — either way, visible).
+- Joined pairs accumulate into per-worker, per-task-class success/latency
+  stats — the evidence that updates `routing.toml`. The reference fleet's
+  "route all frontend design to the Gemini-family worker" rule came from
+  exactly this: a delegated attempt out-designing the orchestrator's inline
+  attempt, recorded, repeated, then promoted to a standing rule.
+- The dashboard's delegations panel (see `docs/observability.md`) renders the
+  joined feed, so dispatched-but-never-reported work can't hide.
+
+**Concurrency caveat:** if multiple orchestrator sessions run at once, don't
+share one log file with read-modify-write reconciliation — shard the log by
+writer (one file per session, readers glob and merge). Append-only per-writer
+files sidestep the whole locking problem.

@@ -87,12 +87,14 @@ another out-of-band channel). Deeper map: `docs/permissions-protocol.md`.
 
 ### Who orchestrates whom
 
-Claude Code (Opus) is the **orchestrator** — it holds the plan and delegates
-scoped tasks to specialists. Codex CLI, Gemini CLI, and Grok CLI are
-**specialists** — Codex for terminal-agentic grinds and surgical edits, Gemini
-for large-context cross-file work, Grok for live web research and best-of-N
-parallel attempts. Routing lives in `<tooling-repo>/routing.toml`, dispatched
-via the `delegate-external` skill.
+Claude Code is the **orchestrator** — it holds the plan and delegates
+scoped tasks to specialists. Codex CLI, the Gemini-family worker, and Grok CLI
+are **specialists** — Codex for terminal-agentic grinds and surgical edits,
+Gemini for large-context cross-file work and frontend/UI design, Grok for live
+web research and best-of-N parallel attempts. Routing lives in
+`<tooling-repo>/routing.toml` — **that file is the source of truth for the
+roster, not this paragraph** (worker CLIs get replaced; see
+`docs/multi-runtime.md`) — dispatched via the `delegate-external` skill.
 
 **Figure out where you fit:** if you are a strong generalist planner, you may
 act as an orchestrator peer. If you are best at a narrow task class, you are a
