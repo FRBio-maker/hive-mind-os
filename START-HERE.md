@@ -1,6 +1,6 @@
 # Start here
 
-*A one-page orientation. Doctrine as of 2026-06-09.*
+*A one-page orientation. Doctrine as of 2026-07-06.*
 
 **What this is:** a portable *operating doctrine* that makes several independent
 AI coding agents (Claude Code, Codex CLI, Gemini CLI, Grok) behave like one
@@ -24,7 +24,8 @@ use whatever you already run).
 | **INSTALL** | ✅ shipped | `bootstrap/` — symlinks identity files in, with backup + rollback |
 | **EXECUTABLES** | 🔌 you wire | session hooks, delegation routing, shared skills — a separate tooling repo |
 | **HUMAN-IN-THE-LOOP** | 🔌 you wire | the approval-relay daemon (phone approvals) — pattern in `docs/human-in-the-loop.md` |
-| **EPISODIC + WORKING memory** | 🔌 you wire | an episodic capture tool (e.g. claude-mem) + a context-offload MCP (e.g. context-mode) |
+| **WORKING memory** | 🔌 you wire | a context-offload MCP (e.g. context-mode) — durable memory itself is the wiki + identity layers above |
+| **OBSERVABILITY** | 🔌 you wire | a local dashboard cockpit so no OS layer fails silently — pattern in `docs/observability.md` |
 | **EXECUTOR tier** | 🔌 you wire | a local GGUF model server for cheap grunt work — pattern in `docs/executor-tier.md` |
 
 **The seams are contracts, not imports.** Each companion meets a one-line contract:
@@ -50,7 +51,7 @@ You do **not** need all four companions to start. Minimum viable adoption:
    live settings (they carry the hard-denies + ask rules). See `permissions/README.md`.
 
 That's a coherent, useful system. The companions (hooks for auto-injection, the
-phone relay, episodic capture, a local model) are **incremental** — add them as you
+phone relay, the dashboard, a local model) are **incremental** — add them as you
 need them, each behind a documented contract.
 
 ---

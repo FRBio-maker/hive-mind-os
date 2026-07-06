@@ -4,7 +4,7 @@
 > of how the cross-agent stack interlocks. Four runtimes (Claude / Codex /
 > Gemini / Grok) on two OSes (Linux WSL + Windows) are unified via symlinks into four
 > canonical GitHub repos — rules, executables, knowledge, human-in-the-loop.
-> Memory is three durable layers plus an always-on working-memory layer (context-mode), requests
+> Memory is two durable layers plus an always-on working-memory layer (context-mode), requests
 > flow through a permission pipeline that escalates to a relay for human approval,
 > and the orchestrator delegates to specialists via `routing.toml`.
 
@@ -178,22 +178,22 @@ side.
 
 ---
 
-## 3. Memory architecture — three durable layers + the working-memory layer
+## 3. Memory architecture — two durable layers + the working-memory layer
 
-How memory feeds the agent. Three injection sources fire at session start;
+How memory feeds the agent. Two injection sources fire at session start;
 context-mode runs alongside the agent every session for token-economy.
+(A third injection source — an episodic capture layer — was retired in
+2026-07 after an audit; see `docs/memory-architecture.md` for the evidence.)
 
 ```mermaid
 flowchart LR
     subgraph SS[Session Start hooks fire]
         direction TB
         AM["Auto-memory<br/>~/.claude/projects/.../memory/<br/>MEMORY.md + per-fact files"]
-        CM["Episodic capture layer<br/>~/.claude-mem/<br/>recent observation timeline"]
         OW["Wiki vault<br/><vault>/<br/>MANIFEST.md + BINDING_QUEUE.md"]
     end
 
     AM -->|always-on inject<br/>identity/preferences| AC
-    CM -->|inject COMPACT digest only<br/>recent IDs+titles, not bodies| AC
     OW -->|always-on inject<br/>Layer-1 nav backbone| AC
 
     AC["Agent Context<br/>(attention window)"]
@@ -205,21 +205,24 @@ flowchart LR
     AC <-->|ctx_execute / ctx_search<br/>on demand| CTX
     AC --> ACT["Active Session<br/>(Claude / Codex / Gemini)"]
 
-    ACT -. "PostToolUse + Stop hooks<br/>append observations" .-> CM
     ACT -. "manual: edits to MEMORY.md" .-> AM
-    ACT -. "Doer mode: cluster opens<br/>on tracked-repo edits" .-> OW
+    ACT -. "Doer mode: cluster opens<br/>on tracked-repo edits<br/>+ /save · /quicksave checkpoints<br/>(auto-quicksave at ~30% context)" .-> OW
 
     classDef inject fill:#dfe9f3,stroke:#369
     classDef sandbox fill:#fffbe6,stroke:#a83
-    class AM,CM,OW inject
+    class AM,OW inject
     class CTX sandbox
 ```
 
 **Distinction (and the promotion path):**
 - **Auto-memory** — small, deterministic, *always loaded*. "Who I am, how I work."
-- **Wiki vault** — curated, walkable, *always injected at Layer 1 only* (manifest); deeper layers walked on demand. "I've gone down this trail before."
-- **Episodic capture layer** — full episodic record. A **compact recent-observation digest** (IDs + titles + timestamps — a navigation index, like the wiki manifest) *is* auto-injected at session start; the **full bodies are never auto-injected** — they are pulled only on cue (e.g. via `mem-search`). "The journal, with its table of contents on the desk." Note the diagram arrow above: what fires at session start is the digest, not the record.
-- **context-mode** — working-memory; not durable. Findings get *promoted* upward into the other three.
+- **Wiki vault** — curated, walkable, *always injected at Layer 1 only* (manifest); deeper layers walked on demand. "I've gone down this trail before." Topic hubs carry the current truth of every project; session state flushes in via the `/save` / `/quicksave` checkpoint workflow (auto-triggered at ~30% context used in the reference rig).
+- **context-mode** — working-memory; not durable. Findings get *promoted* upward into the other two.
+
+**Injection budget:** the session-start sources above are a standing per-session
+token cost — audit it. The reference rig's 2026-07 lean pass cut injection from
+~25.7k tokens (~13% of the context window) to under 10k by retiring the episodic
+digest, slimming the wiki-state block, and pruning unused skills.
 
 ---
 
@@ -327,11 +330,11 @@ shared skills + MCP plugins fit in.
 flowchart TD
     subgraph SKILLS[Skill inventory]
         direction TB
-        NS_C["Claude native<br/>~/.claude/skills/<br/>+ plugin-shipped<br/>(gsd-*, superpowers:*,<br/> context-mode:*, episodic-mem:*)"]
+        NS_C["Claude native<br/>~/.claude/skills/<br/>+ plugin-shipped<br/>(superpowers:*,<br/> context-mode:*, ...)"]
         NS_CX["Codex native<br/>~/.codex/skills/<br/>(domain-specific tasks)"]
         NS_G["Gemini native<br/>~/.gemini/extensions/<br/>(slash-commands as<br/> extensions)"]
-        SH["SHARED<br/><tooling-repo>/shared/skills/<br/>(delegate-external,<br/> mem-search, verify)"]
-        MCP["MCP PLUGINS<br/>auto-installed via<br/>marketplace.json metadata<br/>(episodic-mem, context-mode, ...)"]
+        SH["SHARED<br/><tooling-repo>/shared/skills/<br/>(delegate-external,<br/> verify, ...)"]
+        MCP["MCP PLUGINS<br/>auto-installed via<br/>marketplace.json metadata<br/>(context-mode, ...)"]
     end
 
     OPUS["Claude Opus<br/>(planner / integrator)"]
@@ -409,7 +412,6 @@ flowchart TB
         direction LR
         AM[Auto-memory]
         OB[Wiki vault]
-        CM[Episodic layer]
         CTX[context-mode]
     end
     style MEM fill:#f9f9f9,stroke:#999
@@ -444,7 +446,6 @@ flowchart TB
 
     AM -->|inject| RUNTIMES
     OB -->|inject MANIFEST| RUNTIMES
-    CM -->|inject timeline| RUNTIMES
     RUNTIMES <-->|ctx_execute| CTX
 
     RUNTIMES --> RES
@@ -457,8 +458,7 @@ flowchart TB
     MBOX --> ADAPT
     ADAPT --> RUNTIMES
 
-    RUNTIMES -. PostToolUse hook .-> CM
-    RUNTIMES -. Doer-mode cluster .-> OB
+    RUNTIMES -. "Doer-mode cluster<br/>+ /save · /quicksave" .-> OB
     RUNTIMES -. promotions .-> AM
 
     CCR -. delegate-external .-> CXR
@@ -517,8 +517,8 @@ symlink (or merge target), not a copy.
 | Relay daemon | `<your-home>/approval-relay/daemon.py` |
 | systemd unit | `<your-home>/approval-relay/systemd/approver.service` |
 | Mailbox | `<your-home>/approval-relay/mailbox/` |
-| Episodic capture store | `~/.claude-mem/observations.db` (tool-dependent) |
 | Auto-memory root | `~/.claude/projects/<project>/memory/MEMORY.md` |
+| Observability dashboard (companion) | `<tooling-repo>/shared/dashboard/` — pattern in `docs/observability.md` |
 | Wiki SessionStart hook | `<vault>/scripts/session_start_hook.py` |
 
 ---
@@ -537,7 +537,8 @@ silently auto-approves.
 
 **Rule 3 (memory discipline):** auto-memory is always loaded (identity). Wiki
 Layer 1 (manifest) is always loaded; deeper layers are walked on demand per the
-Wiki Protocol. The episodic layer is cued retrieval only. Context-mode is
-working memory; durable findings get promoted upward.
+Wiki Protocol, and session state flushes back in via `/save` / `/quicksave`
+checkpoints. Context-mode is working memory; durable findings get promoted
+upward.
 
 Three rules, four runtimes (eight instances across two OSes), four repos, one logical machine.

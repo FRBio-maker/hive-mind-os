@@ -172,25 +172,26 @@ specifics to whatever tools you actually run.
    Wiki Protocol below. This is the "I've gone down this trail before
    for this topic" memory.
 
-3. **Episodic record** — full-fidelity capture of past sessions via
-   an episodic capture layer (such as claude-mem, if you run one).
-   The autobiographical record. Storage substrate, not structure.
-
-4. **Working memory (token-economy)** — a context-offload tool (such
+3. **Working memory (token-economy)** — a context-offload tool (such
    as context-mode) that holds large tool outputs in a searchable
    sandbox instead of your attention window. This layer is *not*
    durable across sessions — it manages context *budget*, not
    long-term memory — but it is an active part of every session, not
-   optional. Promote durable findings up into layers 1–3.
+   optional. Promote durable findings up into layers 1–2.
 
-Retrieval is cued, not eager. A compact index of recent episodic
-observations (IDs + titles + timestamps) *is* injected at session start,
-the same way the wiki manifest is — but the full observation *bodies* are
-not; you pull those on cue. When the current task has a topic anchor that
-may have prior work, query the episodic layer explicitly — don't assume
-I'll have volunteered the relevant memory. Treat it like searching a
-journal: the table of contents is on the desk; open an entry when the cue
-tells you something is probably in there.
+Retrieval is cued, not eager. The wiki manifest (an index of hub
+titles) is injected at session start, but the knowledge bodies are
+not; you walk to them on cue. When the current task has a topic
+anchor that may have prior work, walk the wiki explicitly — don't
+assume I'll have volunteered the relevant memory. Session state
+reaches the wiki through checkpoints: a full save at session end, a
+lightweight quicksave mid-session (ideally auto-triggered around 30%
+context used) — don't rely on remembering to flush.
+
+(A fourth layer — full-fidelity episodic capture, e.g. claude-mem —
+used to sit here. It was audited and retired: it duplicated the wiki's
+session clusters and failed silently for days with zero impact. If you
+run one, treat it as optional and audit whether it's load-bearing.)
 
 # Wiki Protocol
 

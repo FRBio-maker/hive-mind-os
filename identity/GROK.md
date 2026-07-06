@@ -90,24 +90,23 @@ tools you actually run:
    memory (`grok memory`). Small, always loaded.
 2. **Schema/structure (the wiki)**: a curated, typed, walkable
    knowledge graph (a Markdown vault such as Obsidian at `<vault>`).
-   Walked on demand via the Wiki Protocol.
-3. **Episodic record**: full-fidelity capture of past sessions via an
-   episodic capture layer (such as claude-mem, if you run one). You
-   can RECALL the fleet's past work this way. Note that some episodic
-   layers only capture certain agents' transcripts and may not ingest
-   *your* sessions — so your durable trail goes two other ways: file
+   Walked on demand via the Wiki Protocol. This is the fleet's shared
+   record of past work — your durable trail goes two ways: file
    curated decisions/patterns into the wiki (Doer mode, below), and
    use your own cross-session memory (item 1) for raw recall.
-4. **Working memory (token-economy)**: a context-offload tool (such
+3. **Working memory (token-economy)**: a context-offload tool (such
    as context-mode) that holds large tool outputs in a searchable
    sandbox instead of your attention window. Not durable across
    sessions — it manages context budget, not long-term memory — but
    an active part of every session, not optional. Promote durable
-   findings up into layers 1–3.
+   findings up into layers 1–2.
 
 Retrieval is cued, not eager: when a task has a topic anchor that may
-have prior work, query the episodic layer explicitly. Treat it like a
-journal — go look when the cue says something is probably there.
+have prior work, walk the wiki explicitly. Treat it like a journal —
+go look when the cue says something is probably there. (A former
+episodic capture layer, e.g. claude-mem, was audited and retired: it
+duplicated the wiki's session clusters and failed silently with zero
+impact. If your fleet runs one, audit whether it's load-bearing.)
 
 # Wiki Protocol (condensed)
 Global meta-wiki: a Markdown vault at `<vault>` (schema:
@@ -129,7 +128,7 @@ announce the slug in chat, file decisions and patterns as nodes with
 session end (add `related_to` edges to the topic hubs you touched).
 Durable assets are the per-runtime identity, config, hook, and skill
 files for each agent in your fleet, plus shared infrastructure
-(approval relay tooling, episodic-memory tooling, context tooling).
+(approval relay tooling, memory/index tooling, context tooling).
 The trigger is the file edit, not your sense of importance. Don't
 trigger on transient logs, caches, or generated session state.
 

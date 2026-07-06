@@ -103,7 +103,7 @@ flowchart TB
         direction TB
         T["EXECUTABLES (tooling repo)<br/>hooks · delegate-* bins · routing.toml · shared skills"]
         H["HUMAN-IN-THE-LOOP (approval-relay)<br/>daemon · adapters · mailbox<br/>pattern → docs/human-in-the-loop.md"]
-        E["EPISODIC capture layer<br/>e.g. claude-mem (PostToolUse/Stop hooks)"]
+        O["OBSERVABILITY (dashboard)<br/>local cockpit, collector-per-source<br/>pattern → docs/observability.md"]
         C["WORKING-MEMORY<br/>e.g. context-mode MCP (output containment)"]
     end
 
@@ -111,13 +111,13 @@ flowchart TB
     I -. "places" .-> R
     R -. "ASK rules escalate to" .-> H
     R -. "delegate-external routes via" .-> T
-    R -. "cued retrieval from" .-> E
+    O -. "surfaces every layer's<br/>live state" .-> R
     R -. "offloads large output to" .-> C
 
     classDef ship fill:#dfd,stroke:#393,stroke-width:2px
     classDef byo fill:#eef,stroke:#669,stroke-dasharray:4 3
     class R,K,I ship
-    class T,H,E,C byo
+    class T,H,O,C byo
 ```
 
 **Why the split:** RULES and KNOWLEDGE are plain text — portable, auditable, no
@@ -242,7 +242,7 @@ CI-safe rule — *every cluster binds to a topic hub* (`lint_binding.py`).
 | Delegation routing (`routing.toml`, wrappers) | companion | tooling repo (`docs/INFRASTRUCTURE.md` §6) |
 | Hooks / custom bins / shared skills | companion | tooling repo |
 | Approval relay (daemon + adapters) | companion | `docs/human-in-the-loop.md` |
-| Episodic capture (e.g. claude-mem) | companion | `docs/memory-architecture.md` |
+| Observability dashboard | companion | `docs/observability.md` |
 | Working-memory (e.g. context-mode) | companion | `docs/memory-architecture.md` |
 
 ---
@@ -255,8 +255,9 @@ CI-safe rule — *every cluster binds to a topic hub* (`lint_binding.py`).
    `permissions/`. Allow and hard-deny are silent; ASK escalates to the
    (companion) relay; timeout defaults to deny.
 3. **Memory discipline** — identity always loaded; `wiki-template/` manifest
-   injected at Layer 1; deeper layers walked on demand; episodic + working
-   memory are cued/transient companions.
+   injected at Layer 1; deeper layers walked on demand and flushed back via
+   `/save` / `/quicksave` checkpoints; working memory (context-mode) is a
+   transient companion — durable findings promote upward.
 
 Two concerns ship, two you bring. The seams between them are written contracts,
 not code dependencies — which is why the doctrine survives swapping any one

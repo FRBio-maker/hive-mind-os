@@ -53,21 +53,28 @@ logical machine** when both are in play.
 
 ### The memory layers
 
-You have three durable memory layers plus an always-on working-memory layer, each with a distinct job. Do not treat them as interchangeable.
+You have two durable memory layers plus an always-on working-memory layer, each with a distinct job. Do not treat them as interchangeable.
 
 1. **Auto-memory** — small, deterministic, *always loaded*. "Who the user is,
    how they work." Lives at `~/.claude/projects/.../memory/` (Claude's home;
    other runtimes keep their own equivalent or read this as reference).
-2. **Semantic / wiki** (`<vault>/`) — curated knowledge graph. Only the
-   **manifest** (`<vault>/MANIFEST.md`, a Layer-1 navigation backbone) is
-   loaded at session start; you walk deeper *on demand*. "I have been down this
-   trail before."
-3. **Episodic / capture layer** (e.g. claude-mem, `~/.claude-mem/`) — full-fidelity
-   capture of past sessions. *Cued retrieval only* — you query it when a topic
-   anchor suggests prior work exists, not eagerly. "The journal."
-4. **Working-memory / context-mode** — an MCP server that offloads large command
+2. **Semantic / wiki** (`<vault>/`) — curated knowledge graph, and the **source
+   of truth for project state** (topic hubs). Only the **manifest**
+   (`<vault>/MANIFEST.md`, a Layer-1 navigation backbone) is loaded at session
+   start; you walk deeper *on demand*. "I have been down this trail before."
+3. **Working-memory / context-mode** — an MCP server that offloads large command
    output out of your context window into a searchable sandbox. Not durable;
-   useful findings get *promoted* up into the three layers above.
+   useful findings get *promoted* up into the two layers above.
+
+Session state reaches the durable layers through the **checkpoint workflow**:
+`/save` (full end-of-session checkpoint: finalize cluster, reconcile hub,
+commit), `/quicksave` (mid-session, wiki-nodes-only, no git), `/reset`
+(save + signal a context reset). The reference rig fires `/quicksave`
+automatically at ~30% context used — don't rely on remembering.
+
+> A third durable layer (episodic capture, e.g. claude-mem) used to sit here.
+> It was audited and retired in 2026-07 — the doctrine and the lessons are in
+> `docs/memory-architecture.md`.
 
 Deeper map: `docs/memory-architecture.md`.
 
@@ -180,10 +187,11 @@ best-effort and degrades gracefully. Determine:
   all do — e.g. a `.cursorrules`, an `AGENTS.md`, a system prompt.) If yes, that
   is where the house rules go.
 - *Does it support session hooks* (run a command at session start / after a tool
-  call)? If yes, you can wire manifest injection and episodic capture. If **no**,
-  you fall back to doing those steps manually (read `<vault>/MANIFEST.md`
-  yourself at the start of each session; you simply won't get auto-episodic
-  capture — note that limitation to the human).
+  call)? If yes, you can wire manifest injection and the auto-quicksave
+  checkpoint trigger. If **no**, you fall back to doing those steps manually
+  (read `<vault>/MANIFEST.md` yourself at the start of each session, and run
+  the checkpoint yourself instead of relying on the auto-trigger — note that
+  limitation to the human).
 - *Does it support MCP servers?* If yes, you can use context-mode. If no, skip
   it.
 
@@ -237,8 +245,8 @@ throwaway subagent, you obey these for as long as you run on this machine.
    (`.bak.<timestamp>`) is the standard.
 3. **Memory writes through, it does not pile up.** Durable facts go into the
    right layer (auto-memory for identity/preferences, the wiki for curated
-   knowledge, the episodic layer captures sessions automatically). Don't dump
-   conversation-local detail into durable memory.
+   knowledge and session clusters — flushed via `/save` / `/quicksave`). Don't
+   dump conversation-local detail into durable memory.
 4. **Walk the wiki before you answer non-trivial questions.** Scan
    `<vault>/MANIFEST.md`; if a topic hub matches, read its TL;DR before
    answering. Reading 30 lines is cheap; answering from stale assumptions is not.
@@ -260,15 +268,15 @@ throwaway subagent, you obey these for as long as you run on this machine.
 Report these back to the human so they can confirm you're wired in correctly:
 
 - [ ] You can state, in one sentence each, the role of all four canonical repos.
-- [ ] You know which of the four memory layers to use for a given fact.
+- [ ] You know which memory layer to use for a given fact.
 - [ ] Your identity file is in place (symlinked, for a known runtime; created +
       symlinked + added to bootstrap, for a new runtime), and you said which.
 - [ ] You can read `<vault>/MANIFEST.md` and know to walk it before answering.
 - [ ] You know how to reach the human through the relay when blocked.
 - [ ] You have declared whether you are acting as an **orchestrator peer** or a
       **specialist**, and why.
-- [ ] Any capability you *cannot* support (e.g. no session hooks → no auto
-      episodic capture) is written down and reported, not silently skipped.
+- [ ] Any capability you *cannot* support (e.g. no session hooks → no
+      auto-quicksave) is written down and reported, not silently skipped.
 
 If every box is checked, you're part of the hive. Welcome.
 

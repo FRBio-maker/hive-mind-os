@@ -89,7 +89,7 @@ and reads its house rules from `~/.grok/AGENTS.md` (bootstrap symlinks
 ## Adding your own hooks and paths
 
 These templates deliberately omit hooks tied to specific plugins,
-episodic-memory tooling, approval relays, or other external tools — those
+memory tooling, approval relays, or other external tools — those
 are yours to add. When you do, keep paths generic in anything you commit
 to a shared repo, and keep machine-specific absolute paths in your live
 local config only.

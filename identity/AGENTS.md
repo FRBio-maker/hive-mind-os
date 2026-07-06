@@ -169,23 +169,23 @@ specifics to whatever tools you actually run.
    Wiki Protocol below. This is the "I've gone down this trail before
    for this topic" memory.
 
-3. Episodic record. Full-fidelity capture of past sessions via an
-   episodic capture layer (such as claude-mem, if you run one),
-   ideally shared across all agents in your fleet. The
-   autobiographical record. Storage substrate, not structure.
-
-4. Working memory (token-economy). A context-offload tool (such as
+3. Working memory (token-economy). A context-offload tool (such as
    context-mode) that holds large tool outputs in a searchable
    sandbox instead of your attention window. Not durable across
    sessions — it manages context budget, not long-term memory — but
    an active part of every session, not optional. Promote durable
-   findings up into layers 1–3.
+   findings up into layers 1–2.
 
 Retrieval is cued, not eager. When the current task has a topic
-anchor that may have prior work, query the episodic layer explicitly.
-Don't assume the relevant memory will have been volunteered. Treat it
-like searching a journal: go look when the cue tells you something is
-probably in there.
+anchor that may have prior work, walk the wiki explicitly. Don't
+assume the relevant memory will have been volunteered. Flush session
+state into the wiki via checkpoints (full save at session end,
+lightweight quicksave mid-session) rather than trusting recall.
+
+(A fourth layer — full-fidelity episodic capture, e.g. claude-mem —
+used to sit here. It was audited and retired: it duplicated the
+wiki's session clusters and failed silently for days with zero
+impact. If you run one, audit whether it's load-bearing.)
 
 # Wiki Protocol
 

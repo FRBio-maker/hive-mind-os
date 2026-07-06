@@ -198,6 +198,12 @@ parts, plus one gated LLM call for the truth reconcile. A reference save routine
 4. reconcile the touched hub's current truth (gated diff the human confirms),
 5. commit the vault + write a session summary.
 
+In the reference rig this routine is packaged as a `/save` command, with a
+`/quicksave` subset (flush wiki nodes only, no git, no finalize) for
+mid-session checkpoints — fired **automatically at ~30% context used** so
+state reaches disk before the window tightens, without anyone remembering to
+run it. See `docs/memory-architecture.md` ("Checkpointing").
+
 **Tier 2** (the contradiction sweep) is heavier and runs on a schedule or on
 demand — point it at **cross-hub** pairs, the long-range drift Tier 1 structurally
 leaves behind. Flag-only, resumable, never destructive. A dry-run pass over the

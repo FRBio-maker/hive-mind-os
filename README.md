@@ -22,8 +22,13 @@ What the system provides:
   Obsidian-style vault. Decisions, patterns, and research accumulate in one
   place, not scattered across per-agent scratch pads.
 - **Layered memory.** Identity preferences are always loaded; the wiki manifest
-  is loaded on session start; episodic history is retrieved on cue. Nothing is
-  auto-flooded into context.
+  is loaded on session start; large outputs are contained in a working-memory
+  sandbox. Nothing is auto-flooded into context — and layers that don't earn
+  their keep get retired (see `docs/memory-architecture.md`).
+- **Observability.** A local, zero-cloud dashboard pattern that surfaces every
+  OS layer — model tier, agent context, delegations, jobs, wiki health — so
+  the system's many daemons and hooks can't fail silently
+  (`docs/observability.md`).
 - **Permission doctrine.** Every tool call passes through a permission resolver.
   Risky actions escalate to a human relay rather than auto-approving. The policy
   files in `permissions/` make the rules explicit and version-controlled.
@@ -121,7 +126,8 @@ files; you wire the remaining pieces once you have them.
 |---|---|
 | [ONBOARDING.md](ONBOARDING.md) | Agent-facing walkthrough — read this before acting |
 | [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Seven-diagram architecture reference |
-| [docs/memory-architecture.md](docs/memory-architecture.md) | The three durable memory layers + the always-on working-memory layer — and when to use each |
+| [docs/memory-architecture.md](docs/memory-architecture.md) | The two durable memory layers + the always-on working-memory layer, the checkpoint workflow (`/save`, `/quicksave`), and why the episodic layer was retired |
+| [docs/observability.md](docs/observability.md) | The dashboard layer — a local cockpit pattern so no OS layer can fail silently |
 | [docs/wiki-protocol.md](docs/wiki-protocol.md) | Wiki traversal protocol — summary-first graph walk |
 | [docs/permissions-protocol.md](docs/permissions-protocol.md) | Permission pipeline and human-in-the-loop detail |
 | [docs/human-in-the-loop.md](docs/human-in-the-loop.md) | Relay setup guide |
