@@ -25,9 +25,11 @@ What the system provides:
   is loaded on session start; large outputs are contained in a working-memory
   sandbox. Nothing is auto-flooded into context — and layers that don't earn
   their keep get retired (see `docs/memory-architecture.md`).
-- **Observability.** A local, zero-cloud dashboard pattern that surfaces every
-  OS layer — model tier, agent context, delegations, jobs, wiki health — so
-  the system's many daemons and hooks can't fail silently
+- **An OS UI.** A local, zero-cloud dashboard that is the hive's cockpit *and*
+  control surface — it watches every OS layer (executor tier, agent context,
+  delegations, jobs, wiki health) so nothing fails silently, and it carries the
+  agent-agnostic OS capabilities: the gated overnight job runner, autonomous-run
+  orchestration, session checkpointing, and relay presence control
   (`docs/observability.md`).
 - **Permission doctrine.** Every tool call passes through a permission resolver.
   Risky actions escalate to a human relay rather than auto-approving. The policy
@@ -103,7 +105,7 @@ See [ONBOARDING.md](ONBOARDING.md) for the agent-facing walkthrough.
 ## The system at a glance
 
 The full architecture — symlink topology, memory layers, permission pipeline,
-approval relay, and skill routing — is documented with seven Mermaid diagrams
+approval relay, and skill routing — is documented with eight Mermaid diagrams
 in [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md).
 
 Short version: each runtime directory (`~/.claude/`, `~/.codex/`, `~/.gemini/`,
@@ -125,15 +127,15 @@ files; you wire the remaining pieces once you have them.
 | Document | What it covers |
 |---|---|
 | [ONBOARDING.md](ONBOARDING.md) | Agent-facing walkthrough — read this before acting |
-| [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Seven-diagram architecture reference |
+| [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Eight-diagram architecture reference |
 | [docs/memory-architecture.md](docs/memory-architecture.md) | The two durable memory layers + the always-on working-memory layer, the checkpoint workflow (`/save`, `/quicksave`), and why the episodic layer was retired |
-| [docs/observability.md](docs/observability.md) | The dashboard layer — a local cockpit pattern so no OS layer can fail silently |
+| [docs/observability.md](docs/observability.md) | The dashboard — the OS's UI: cockpit for every layer plus the job runner, autonomous runs, checkpointing, and relay control |
 | [docs/wiki-protocol.md](docs/wiki-protocol.md) | Wiki traversal protocol — summary-first graph walk |
 | [docs/permissions-protocol.md](docs/permissions-protocol.md) | Permission pipeline and human-in-the-loop detail |
 | [docs/human-in-the-loop.md](docs/human-in-the-loop.md) | Relay setup guide |
 | [docs/hygiene.md](docs/hygiene.md) | Session hygiene rules — what to capture, what to skip |
 | [docs/multi-runtime.md](docs/multi-runtime.md) | Cross-runtime coordination patterns |
-| [docs/executor-tier.md](docs/executor-tier.md) | Local-model executor tier — decision-free grunt-work layer beneath the agents |
+| [docs/executor-tier.md](docs/executor-tier.md) | Executor tier — hosted cheap-model API behind a local proxy for decision-free grunt work (local inference as the alternative) |
 | [config-templates/](config-templates/) | Starter configs for each runtime |
 | [permissions/](permissions/) | Per-runtime permission rule files |
 | [wiki-template/](wiki-template/) | SCHEMA.md + scaffold scripts for a new vault |

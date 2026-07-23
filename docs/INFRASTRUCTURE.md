@@ -1,16 +1,16 @@
 # Agent Infrastructure — Unified Reference
 
-> **TL;DR (≤80 words):** Seven Mermaid diagrams + tables giving the full picture
+> **TL;DR (≤80 words):** Eight Mermaid diagrams + tables giving the full picture
 > of how the cross-agent stack interlocks. Four runtimes (Claude / Codex /
 > Gemini / Grok) on two OSes (Linux WSL + Windows) are unified via symlinks into four
 > canonical GitHub repos — rules, executables, knowledge, human-in-the-loop.
 > Memory is two durable layers plus an always-on working-memory layer (context-mode), requests
 > flow through a permission pipeline that escalates to a relay for human approval,
-> and the orchestrator delegates to specialists via `routing.toml`.
+> the orchestrator delegates via `routing.toml`, and a local dashboard is the OS's UI.
 
 ## How to read this document
 
-Seven Mermaid diagrams, progressively zoomed. Each is self-contained — read in
+Eight Mermaid diagrams, progressively zoomed. Each is self-contained — read in
 order for the full story, or jump to the section you need. Diagrams render
 natively in Obsidian (live preview), GitHub, and any modern markdown viewer.
 Tables at the end pull file-paths and per-agent surfaces out of the panels for
@@ -20,6 +20,7 @@ Companion docs:
 - `memory-architecture.md` — deeper on the memory layers (Panel 3)
 - `permissions-protocol.md` — deeper on the permission resolver (Panel 4)
 - `human-in-the-loop.md` — deeper on the approval relay (Panel 5)
+- `observability.md` — deeper on the dashboard / OS layer (Panel 7)
 
 ---
 
@@ -34,8 +35,8 @@ OSes.
 > Windows). The doctrine is OS-agnostic: macOS is native Unix, so it follows the
 > Linux path directly — `bash bootstrap/setup-macos.sh`, native symlinks with no
 > privilege needed, and **no WSL**. The Mac-specific divergences (python3 stub,
-> BSD-vs-GNU coreutils in companion scripts, Metal-accelerated executor tier) are
-> documented in the header of `bootstrap/setup-macos.sh`.
+> BSD-vs-GNU coreutils in companion scripts, Metal-accelerated local-inference
+> executor alternative) are documented in the header of `bootstrap/setup-macos.sh`.
 
 ```mermaid
 flowchart TB
@@ -382,7 +383,74 @@ dispatches are made safe by allowing only read tools and stripping mutating ones
 
 ---
 
-## 7. The complete system — one view
+## 7. The OS layer — the dashboard as the hive's UI
+
+One local, zero-cloud page is both the cockpit for every OS layer and the
+surface where the OS's agent-agnostic capabilities live: the job runner,
+autonomous-run orchestration, session checkpointing, and relay presence
+control. New agents join the OS by adding a **collector**, not a UI. Deeper:
+`docs/observability.md`.
+
+```mermaid
+flowchart TB
+    HUMAN([Human<br/>browser · 127.0.0.1])
+
+    subgraph DASH[Hive dashboard — stdlib server + one page]
+        direction TB
+        READ["READ PATH<br/>one collector per source<br/>(never raises; bad source<br/>degrades its own panel)"]
+        WRITE["WRITE PATH<br/>gated verbs, visibly separate"]
+    end
+
+    HUMAN <--> DASH
+
+    subgraph SRC[Sources — one panel each]
+        direction LR
+        EXEC["Executor-tier proxy<br/>(quota burn, pacing,<br/>per-consumer attribution)"]
+        SESS["Agent session logs<br/>(context bars, spend)"]
+        TELEM["Delegation telemetry"]
+        VAULT["Wiki vault health<br/>(binding queue, hubs)"]
+    end
+
+    READ --> EXEC
+    READ --> SESS
+    READ --> TELEM
+    READ --> VAULT
+
+    subgraph CAP[OS capabilities]
+        direction TB
+        JOBS["JOB RUNNER<br/>jobs board · scheduler-registered<br/>ARM = human confirm<br/>+ passing dry-run of real cmd<br/>job LLM calls → executor tier"]
+        WOLF["AUTONOMOUS RUNS<br/>('lone wolf' overnight)<br/>CEO session → scoped orchestrators<br/>→ workers per routing.toml<br/>review gate per work package<br/>isolated branch, never auto-merged<br/>→ morning report"]
+        CKPT["CHECKPOINTING<br/>/save — full: finalize cluster,<br/>handoff, commit<br/>/quicksave — mid-session flush"]
+        AWAY["RELAY PRESENCE<br/>away-mode toggle<br/>(phone vs terminal approvals)"]
+    end
+
+    WRITE --> JOBS
+    WRITE --> WOLF
+    WRITE --> AWAY
+    READ --> CAP
+
+    JOBS -.LLM calls.-> EXEC
+    CKPT -.flushes into.-> VAULT
+
+    NEWAGENT["New agent joins the OS<br/>= adds ONE collector module"] -.-> READ
+
+    classDef read fill:#dfe9f3,stroke:#369
+    classDef write fill:#ffe,stroke:#a83
+    classDef cap fill:#dfd,stroke:#393
+    class READ,EXEC,SESS,TELEM,VAULT read
+    class WRITE write
+    class JOBS,WOLF,CKPT,AWAY cap
+```
+
+**The two gates that make unattended work safe:** a job cannot arm without a
+human confirmation *and* a passing dry-run of the actual command; an
+autonomous run cannot merge — its branch waits for a human, and every work
+package passes a review gate before the next builds on it. The dashboard is
+where both gates are visible.
+
+---
+
+## 8. The complete system — one view
 
 Everything in one diagram. Use this when you need to see how a change in one
 component affects the others.
@@ -437,8 +505,20 @@ flowchart TB
     end
     style TELE fill:#fde,stroke:#a36
 
+    subgraph OSUI[OS layer — dashboard UI]
+        direction LR
+        DASH["dashboard<br/>(collectors, read-only)"]
+        JOBS["job runner<br/>(armed = confirm + dry-run)"]
+        WOLF["autonomous runs<br/>(branch never auto-merged)"]
+    end
+    style OSUI fill:#eef6ff,stroke:#369
+
     USER --> RUNTIMES
     USER -. via phone .-> BOT
+    USER -. browser .-> DASH
+    DASH -. reads every layer .-> RUNTIMES
+    WOLF -. dispatches per routing.toml .-> RUNTIMES
+    DASH -. away-mode toggle .-> DMN
 
     RUNTIMES -.symlinks.-> AHM
     RUNTIMES -.symlinks.-> ATOOL
@@ -470,7 +550,7 @@ flowchart TB
     RELAY -.deploys.-> DMN
 ```
 
-Every component referenced in panels 1–6 appears here once, connected. The
+Every component referenced in panels 1–7 appears here once, connected. The
 fleet stays consistent because every runtime arrow into a canonical repo is a
 symlink (or merge target), not a copy.
 
@@ -484,7 +564,7 @@ symlink (or merge target), not a copy.
 | Tooling repo | hooks, custom bins, routing.toml, shared skills, plugin metadata | the **executables** layer — runnable code shared across agents; lives in a separate repo from this one |
 | Knowledge-graph vault | wiki vault — topic hubs, clusters, sources | the **knowledge** layer — semantic memory; this repo ships a starter template under `wiki-template/` |
 | `approval-relay` | daemon, adapters, mailbox protocol, systemd units | the **human-in-the-loop** layer |
-| Local model server | tuned launch config for a local GGUF server (weights/build not versioned) | the **executor** layer — decision-free local grunt work; companion, pattern in `docs/executor-tier.md` |
+| Executor-tier proxy | small local proxy in front of a hosted cheap-model API (holds the key, routes on `model`, paces requests; config versioned, key never) | the **executor** layer — decision-free grunt work; companion, pattern in `docs/executor-tier.md` (local inference documented as the alternative) |
 
 ## Per-agent surface area (what each runtime exposes)
 
@@ -518,7 +598,7 @@ symlink (or merge target), not a copy.
 | systemd unit | `<your-home>/approval-relay/systemd/approver.service` |
 | Mailbox | `<your-home>/approval-relay/mailbox/` |
 | Auto-memory root | `~/.claude/projects/<project>/memory/MEMORY.md` |
-| Observability dashboard (companion) | `<tooling-repo>/shared/dashboard/` — pattern in `docs/observability.md` |
+| OS dashboard (companion) | `<tooling-repo>/shared/dashboard/` — the hive's UI; pattern in `docs/observability.md` |
 | Wiki SessionStart hook | `<vault>/scripts/session_start_hook.py` |
 
 ---

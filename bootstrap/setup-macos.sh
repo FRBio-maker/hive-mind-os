@@ -40,10 +40,12 @@
 #    distinct names so this is fine here, but if you add files that differ only
 #    by case (Foo.md vs foo.md), they collide on a default Mac volume.
 #
-# 6. EXECUTOR TIER (if you adopt it). On Apple Silicon, llama.cpp builds with
-#    Metal acceleration and runs the GGUF models natively — no CUDA, no WSL GPU
-#    bridge. This is a different (and simpler) setup than the Windows path in
-#    docs/executor-tier.md; the OpenAI-compatible endpoint contract is identical.
+# 6. EXECUTOR TIER (if you adopt it). The recommended tier is a hosted
+#    cheap-model API behind a local proxy (docs/executor-tier.md) — fully
+#    OS-agnostic. If you choose the LOCAL-inference alternative instead: on
+#    Apple Silicon, llama.cpp builds with Metal acceleration and runs GGUF
+#    models natively — no CUDA, no WSL GPU bridge — and the OpenAI-compatible
+#    endpoint contract is identical.
 # ------------------------------------------------------------------
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

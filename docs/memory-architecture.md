@@ -25,6 +25,12 @@ Holds **who I am** and **how I work**. Things that should be true for every sess
 **Where:** `<vault>/` (global) and `<project>/wiki/` (per-project).
 **Behavior:** Curated, typed, walkable. The semantic layer — concepts, decisions, patterns, *and the single narrative record of ongoing work*. Walked on demand, summary-first traversal per the Wiki Protocol (see `docs/wiki-protocol.md`).
 
+This layer is **also the episodic record**: dated session clusters
+(`nodes/<date>-<slug>/`) capture what each work session did, curated at
+checkpoint time rather than recorded automatically. When the automatic episodic
+layer was retired (see below), these clusters were what had been carrying the
+real session-recap role all along.
+
 This is the **"I've gone down this trail before for this topic"** memory. When the current task has a topic anchor that may have prior work, the agent walks the graph via:
 1. Cluster summaries (`_summary.md` per dated cluster).
 2. In-cluster node summaries (frontmatter + TL;DR + Connections, ~30 lines each).
@@ -54,9 +60,10 @@ is a **defined, automatable workflow**, not a habit:
 - **`/quicksave`** — the mid-session subset: flush working state into the wiki
   nodes (cluster + touched nodes) **without** the git/finalize machinery.
   Cheap enough to run whenever meaningful state has accumulated.
-- **`/reset`** — checkpoint exactly like `/save`, then signal that a context
-  reset is coming, so the next session can resume from the wiki instead of a
-  lossy conversation summary.
+
+(Two commands, not three: an earlier `/reset` variant — save + signal a context
+reset — was folded into `/save`, since every full checkpoint should leave the
+wiki resumable anyway.)
 
 **Automate the trigger.** Relying on the agent (or the human) to *remember* to
 checkpoint fails exactly when it matters — deep in a long session. The

@@ -103,7 +103,7 @@ flowchart TB
         direction TB
         T["EXECUTABLES (tooling repo)<br/>hooks · delegate-* bins · routing.toml · shared skills"]
         H["HUMAN-IN-THE-LOOP (approval-relay)<br/>daemon · adapters · mailbox<br/>pattern → docs/human-in-the-loop.md"]
-        O["OBSERVABILITY (dashboard)<br/>local cockpit, collector-per-source<br/>pattern → docs/observability.md"]
+        O["OS UI (dashboard)<br/>cockpit + control surface, collector-per-source<br/>pattern → docs/observability.md"]
         C["WORKING-MEMORY<br/>e.g. context-mode MCP (output containment)"]
     end
 
@@ -237,12 +237,12 @@ CI-safe rule — *every cluster binds to a topic hub* (`lint_binding.py`).
 | Manifest + binding queue + binding lint | **shipped** | `wiki-template/scripts/` |
 | Session-start manifest injection | **shipped** (reference impl) | `session_start_hook.py` |
 | Per-hub truth blocks | documented add-on | `docs/hygiene.md` |
-| Contradiction judge (local LLM) | documented add-on | `docs/hygiene.md` |
+| Contradiction judge (executor-tier LLM) | documented add-on | `docs/hygiene.md` |
 | Source-library ingest (PDF → sidecars) | **not included** | `SCHEMA.md §7` describes the workflow; bring your own ingest step |
 | Delegation routing (`routing.toml`, wrappers) | companion | tooling repo (`docs/INFRASTRUCTURE.md` §6) |
 | Hooks / custom bins / shared skills | companion | tooling repo |
 | Approval relay (daemon + adapters) | companion | `docs/human-in-the-loop.md` |
-| Observability dashboard | companion | `docs/observability.md` |
+| OS dashboard (UI + observability) | companion | `docs/observability.md` |
 | Working-memory (e.g. context-mode) | companion | `docs/memory-architecture.md` |
 
 ---

@@ -42,8 +42,8 @@ everything, cheaply. Together they cover both the common case and the long tail.
 This template ships the **structural** half of hygiene — the parts that need no
 LLM and no judgment. The **semantic** half (truth reconciliation and
 contradiction judging) needs a model, so it is documented here as input-contracts
-you wire to whatever LLM you run (a local model is plenty — see
-`docs/executor-tier.md`).
+you wire to whatever LLM you run (the executor tier is plenty — a hosted
+cheap-tier model or a local one; see `docs/executor-tier.md`).
 
 | Capability | Tier | Status |
 |---|---|---|
@@ -149,13 +149,13 @@ to be useful.
 
 The judge's quality is bottlenecked by **what it is shown, not how big it is.** A
 judge handed only the two node *bodies* cannot distinguish a real contradiction
-from a legitimate supersession or continuation. The fix that makes a small local
+from a legitimate supersession or continuation. The fix that makes a small, cheap
 model reliable is a richer input: feed it the **typed, dated, directional edges**
 between the two nodes (`followed_by`, `supersedes`, `contradicts`) plus each
 node's date and status. With that context it reliably separates "A was later
 replaced by B" (not a conflict) from "A and B assert incompatible facts with
 nothing connecting them" (a real conflict to flag). This is the single most
-important design lesson of the subsystem — and the reason the executor-tier local
+important design lesson of the subsystem — and the reason the executor-tier
 model is enough; you do not need a frontier model to judge.
 
 ### Input contract

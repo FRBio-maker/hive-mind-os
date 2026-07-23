@@ -62,21 +62,50 @@ You have two durable memory layers plus an always-on working-memory layer, each 
    of truth for project state** (topic hubs). Only the **manifest**
    (`<vault>/MANIFEST.md`, a Layer-1 navigation backbone) is loaded at session
    start; you walk deeper *on demand*. "I have been down this trail before."
+   The wiki is **also the episodic record**: dated session clusters capture
+   what each session did, curated at checkpoint time — there is no separate
+   automatic episodic layer.
 3. **Working-memory / context-mode** — an MCP server that offloads large command
    output out of your context window into a searchable sandbox. Not durable;
-   useful findings get *promoted* up into the two layers above.
+   useful findings get *promoted* up into the two layers above. It manages
+   context *budget* within a session, not memory across sessions.
 
 Session state reaches the durable layers through the **checkpoint workflow**:
 `/save` (full end-of-session checkpoint: finalize cluster, reconcile hub,
-commit), `/quicksave` (mid-session, wiki-nodes-only, no git), `/reset`
-(save + signal a context reset). The reference rig fires `/quicksave`
-automatically at ~30% context used — don't rely on remembering.
+write the handoff, commit) and `/quicksave` (mid-session, wiki-nodes-only,
+no git). The reference rig fires `/quicksave` automatically at ~30% context
+used — don't rely on remembering.
 
-> A third durable layer (episodic capture, e.g. claude-mem) used to sit here.
-> It was audited and retired in 2026-07 — the doctrine and the lessons are in
+> A third durable layer (automatic episodic capture, e.g. claude-mem) used to
+> sit here. It was audited and retired in 2026-07 — it failed silently for 10
+> days with zero operational impact, proving the wiki's session clusters were
+> already carrying the episodic role. The evidence and lessons are in
 > `docs/memory-architecture.md`.
 
 Deeper map: `docs/memory-architecture.md`.
+
+### The OS layer — the dashboard and what plugs into it
+
+The hive has a **UI**: a local, zero-cloud dashboard (`docs/observability.md`)
+that is both the cockpit for every OS layer and the surface where the OS's
+**agent-agnostic capabilities** live. As a new fleet member, these are what
+you plug into rather than build yourself:
+
+- **The job runner** — a jobs board for overnight/scheduled work. Arming a job
+  requires explicit human confirmation *and* a passing dry-run of the real
+  command; job LLM calls route to the executor tier, not to you.
+- **Autonomous-run orchestration** — the overnight "lone wolf" pattern: a CEO
+  session spawns scoped orchestrators that dispatch workers per the routing
+  table, with review gates per work package, an isolated branch that is never
+  auto-merged, and a morning report.
+- **Session checkpointing** — the `/save` / `/quicksave` verbs above. Every
+  agent checkpoints the same way into the same vault.
+- **Relay presence control** — the away-mode toggle that decides whether
+  approvals route to the phone or the terminal.
+
+You join this layer by **adding a collector** — one small module that reports
+your runtime's state to the dashboard — not by building your own UI or your
+own scheduler (collector contract in `docs/observability.md`).
 
 ### The human-in-the-loop channel
 
@@ -225,7 +254,30 @@ best-effort and degrades gracefully. Determine:
   `<tooling-repo>/routing.toml` so the orchestrator can route work to you. If you
   are an orchestrator peer, learn to read it.
 
-**Step 5 — Commit.** `git add` your new identity files, the updated bootstrap
+**Step 5 — Wire the permission pipeline.** Every fleet member's tool calls pass
+an allow / ask / deny resolver, and yours must match the fleet's model
+(`docs/permissions-protocol.md`, excerpts in `permissions/`):
+
+- **Mirror the aligned model**, don't invent one: translate the `permissions/`
+  excerpts into your runtime's permission format. **Ask-list-first** — when
+  unsure which bucket a rule belongs in, put it in ASK. The safe path is the
+  prompted path; you can promote to ALLOW later once a pattern proves boring.
+- **Carry the hard-denies over verbatim.** The deny list (apocalypse commands,
+  credential reads, force-push to main, verification bypasses) is the same for
+  every runtime — no local edits, no "my runtime doesn't need that one".
+- **ASK escalates to the human relay and TIMES OUT TO DENY.** A prompt nobody
+  answers is a denial, never a silent approval.
+- **No permission layer? Declare it.** If your runtime cannot enforce
+  allow/ask/deny, that is a real limitation — write it down and report it to
+  the human (§5). Behaving cautiously is not the same as being constrained,
+  and the human must know which one they're getting.
+- **Known gotcha class — self-widening:** an agent must never be able to widen
+  its own permission file mid-session. Edits to permission rules are
+  **human-only**, made outside the session that would benefit from them. If
+  your integration would let you edit your own rules, close that hole before
+  reporting yourself onboarded.
+
+**Step 6 — Commit.** `git add` your new identity files, the updated bootstrap
 scripts, and the doc rows; commit with a clear message (`<runtime>: onboard to
 hive`); push. Now the next machine gets you for free.
 
@@ -286,7 +338,7 @@ If every box is checked, you're part of the hive. Welcome.
 
 ## Further reading
 
-- `docs/INFRASTRUCTURE.md` — seven-diagram architecture map
+- `docs/INFRASTRUCTURE.md` — eight-diagram architecture map
 - `docs/memory-architecture.md` — memory layer deep-dive
 - `docs/wiki-protocol.md` — wiki traversal protocol
 - `docs/permissions-protocol.md` — permission pipeline and human-in-the-loop detail

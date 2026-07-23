@@ -1,6 +1,6 @@
 # Start here
 
-*A one-page orientation. Doctrine as of 2026-07-06.*
+*A one-page orientation. Doctrine as of 2026-07-23.*
 
 **What this is:** a portable *operating doctrine* that makes several independent
 AI coding agents (Claude Code, Codex CLI, Gemini CLI, Grok) behave like one
@@ -25,13 +25,14 @@ use whatever you already run).
 | **EXECUTABLES** | 🔌 you wire | session hooks, delegation routing, shared skills — a separate tooling repo |
 | **HUMAN-IN-THE-LOOP** | 🔌 you wire | the approval-relay daemon (phone approvals) — pattern in `docs/human-in-the-loop.md` |
 | **WORKING memory** | 🔌 you wire | a context-offload MCP (e.g. context-mode) — durable memory itself is the wiki + identity layers above |
-| **OBSERVABILITY** | 🔌 you wire | a local dashboard cockpit so no OS layer fails silently — pattern in `docs/observability.md` |
-| **EXECUTOR tier** | 🔌 you wire | a local GGUF model server for cheap grunt work — pattern in `docs/executor-tier.md` |
+| **OS UI / dashboard** | 🔌 you wire | a local dashboard — the hive's cockpit *and* control surface (job runner, autonomous runs, checkpointing, relay control) — pattern in `docs/observability.md` |
+| **EXECUTOR tier** | 🔌 you wire | a hosted cheap-model API behind a small local proxy for grunt work (local inference as the alternative) — pattern in `docs/executor-tier.md` |
 
 **The seams are contracts, not imports.** Each companion meets a one-line contract:
 the session hook needs a script-runner (`wiki-template/scripts/session_start_hook.py`
 is the reference); the relay needs a command that takes `--prompt` and writes the
-human's reply to stdout; the executor needs any OpenAI-compatible local endpoint.
+human's reply to stdout; the executor needs any OpenAI-compatible endpoint
+(hosted-behind-a-proxy or local).
 Meet the contract with whatever you already have.
 
 ---
@@ -51,8 +52,8 @@ You do **not** need all four companions to start. Minimum viable adoption:
    live settings (they carry the hard-denies + ask rules). See `permissions/README.md`.
 
 That's a coherent, useful system. The companions (hooks for auto-injection, the
-phone relay, the dashboard, a local model) are **incremental** — add them as you
-need them, each behind a documented contract.
+phone relay, the dashboard, an executor tier) are **incremental** — add them as
+you need them, each behind a documented contract.
 
 ---
 
@@ -62,7 +63,7 @@ need them, each behind a documented contract.
 |---|---|
 | A human installing it | [`README.md`](README.md) → [`docs/REPO-MAP.md`](docs/REPO-MAP.md) |
 | An AI agent being onboarded | [`ONBOARDING.md`](ONBOARDING.md) (paste it into the agent) |
-| Wanting the full architecture | [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) (7 diagrams) |
+| Wanting the full architecture | [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) (8 diagrams) |
 | Tuning permissions / the relay | [`docs/permissions-protocol.md`](docs/permissions-protocol.md), [`docs/human-in-the-loop.md`](docs/human-in-the-loop.md) |
 
 **Honest expectation:** what you receive here is the rulebook and scaffolding, not
