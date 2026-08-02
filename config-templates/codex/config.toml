@@ -8,8 +8,22 @@
 # ../../permissions/) and, optionally, a human-in-the-loop relay hook.
 exec_permission_approvals = true
 
+# Ask before privileged/unsandboxed actions instead of auto-deciding.
+approval_policy = "on-request"
+
+# WARNING — sandbox tradeoff. "workspace-write" keeps Codex's OS sandbox
+# (writes confined to the workspace). The reference deployment instead runs
+# "danger-full-access", which DISABLES the OS sandbox entirely and makes the
+# relay + PermissionRequest hook the ONLY gate — acceptable only with a
+# hardened relay in place (see ../../docs/human-in-the-loop.md and the
+# warning block in ../../permissions/codex-config.permissions.toml).
+sandbox_mode = "workspace-write"
+
 # Project trust levels: auto-trust specific directories so Codex doesn't
 # ask every session. SUBSTITUTE your own paths — the placeholder below is
-# not a real directory. Add one block per trusted project.
+# not a real directory. Add one block per trusted project. Don't trust
+# $HOME wholesale (it defeats per-project trust and covers Codex's own
+# config), and prune the table periodically — approved scratchpad dirs
+# accumulate per-session and never expire on their own.
 [projects.'<your-project-path>']
 trust_level = "trusted"

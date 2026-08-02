@@ -71,10 +71,17 @@ its place three ways:
   a model; the proxy maps that to the right provider and credentials. Swap the
   provider behind the tier and no consumer changes.
 - **Pacing — a single choke point.** Free tiers come with rate limits (order of
-  ~10 requests/min, ~1,000+ requests/day is typical). With many consumers hitting
+  ~10 requests/min, ~1,500 requests/day is typical). With many consumers hitting
   the provider directly, each would need its own backoff logic and they'd trip the
   limits collectively anyway. One proxy queues and paces globally, so batch jobs
   just run slower instead of failing.
+
+> **Reference deployment values** (the author's rig — substitute your own):
+> proxy listens on `127.0.0.1:8079`; default model `gemini-3.5-flash`; the
+> provider key lives in the `GEMINI_API_KEY` environment variable held by the
+> proxy process — consumers never see it. In the role-slot control plane
+> (`docs/playbooks/README.md`) this tier appears in the worker pool as
+> `flash`.
 
 ### Why hosted won
 
@@ -107,6 +114,15 @@ something from it. Route accordingly.
 
 Local serving remains a valid executor tier if you have real GPU headroom, and it
 is the right choice when the work itself is sensitive (nothing leaves the box).
+
+> **Where the reference fleet landed:** it **retired its local lane** in
+> 2026-07. The box had 4 GB of VRAM; the quantized 30B model spilled into
+> system RAM and could not do the work reliably (multi-minute latencies,
+> watchdog timeouts). The launch configs were archived and a standing rule
+> was added: **do not route new work to the retired local endpoints** — a
+> half-dead local tier silently eating jobs is worse than no local tier. The
+> advice below stays valid *if you have the hardware*; the reference fleet
+> didn't.
 The wiring is the same shape — any local runtime exposing an OpenAI-compatible
 `/v1/chat/completions` endpoint (`llama.cpp`'s `llama-server`, Ollama, vLLM,
 LM Studio), with consumers pointing their base URL at `localhost`.

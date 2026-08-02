@@ -3,9 +3,11 @@
 # file (it also carries model selection, MCP servers, etc.).
 #
 # Codex's PermissionRequest hook only fires on actual approval prompts
-# (unlike Claude's PreToolUse, which fires on every matched tool), so an
-# attached relay adapter doesn't need client-side filtering — it relays
-# everything it sees.
+# (unlike Claude's PreToolUse, which fires on every matched tool). The
+# reference relay adapter STILL runs its own client-side filter — for
+# defense-in-depth and so the same rule set applies identically across
+# agents (see ../docs/permissions-protocol.md, Codex notes). Don't rely on
+# Codex's pre-filtering alone.
 #
 # Codex generates a per-machine trust hash (a [hooks.state] block) on first
 # run after you trust a hook. Don't copy that block across machines — let
@@ -14,8 +16,31 @@
 # Route command execution through Codex's approval flow.
 exec_permission_approvals = true
 
+# Ask before privileged/unsandboxed actions instead of auto-deciding.
+approval_policy = "on-request"
+
+# ---------------------------------------------------------------------------
+# WARNING — sandbox_mode tradeoff.
+# The reference deployment runs sandbox_mode = "danger-full-access". That
+# DISABLES Codex's OS-level sandbox entirely: the relay + PermissionRequest
+# hook become the ONLY gate between the agent and the filesystem/network.
+# The tradeoff: full-access removes constant sandbox friction on a machine
+# the operator already treats as agent-writable, at the price of losing the
+# hard OS floor under the (bypassable — see wrapper tunneling in
+# ../docs/permissions-protocol.md) rule layer. If you have not built a
+# hardened relay, keep a sandboxed mode ("workspace-write") instead.
+sandbox_mode = "workspace-write"   # reference deployment: "danger-full-access" — see warning above
+
 # Project trust levels — auto-trust certain dirs so Codex doesn't ask every
 # session. SUBSTITUTE your own paths; the placeholder is not a real dir.
+#
+# Two cautions:
+# - Trusting $HOME wholesale defeats per-project trust — it also grants
+#   trust over ~/.codex/config.toml itself (the self-modification trap in
+#   ../docs/permissions-protocol.md). Trust individual project dirs only.
+# - Trust tables ACCUMULATE: session scratchpad dirs and one-off checkouts
+#   get added as you approve them and never expire. Prune the table
+#   periodically or it converges toward blanket trust.
 [projects.'<your-project-path>']
 trust_level = "trusted"
 

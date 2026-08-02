@@ -5,9 +5,12 @@ Two durable layers plus an always-in-operation working-memory layer. They are
 right job.
 
 > **Doctrine change (2026-07):** this used to be *three* durable layers. The
-> third — an episodic capture layer (claude-mem) — was audited and **retired**.
-> The evidence and the lessons are documented at the bottom of this file,
-> because the subtraction taught us more than the layer ever did.
+> third — an episodic capture layer (claude-mem) — was audited and **retired**:
+> doc-retired 2026-07-03, fleet-decommissioned 2026-07-04. The two dates are
+> deliberate — declaring a layer dead in the docs and actually tearing down
+> its moving parts are different acts (see Lesson 2 below). The evidence and
+> the lessons are documented at the bottom of this file, because the
+> subtraction taught us more than the layer ever did.
 
 ## The layers
 
@@ -40,7 +43,7 @@ Edge types and node taxonomy are formalized in `<vault>/SCHEMA.md` (17 node type
 
 **What goes here:** durable knowledge that recurs across sessions. Concepts you'll consult repeatedly. Decisions with ADR-style rationale. Patterns observed across multiple instances. Playbooks for repeatable procedures. **Topic hubs are the authoritative "current state" of every active project** — when the episodic layer was retired, hubs-as-truth is the doctrine that replaced it.
 
-### The working-memory layer (context-mode)
+### 3. Working memory (context-mode)
 
 **Where:** Context-mode MCP server (runs alongside the agent).
 **Behavior:** Offloads large tool outputs (build logs, large file reads, browser snapshots) to a sandbox so they don't fill the agent's context window. Provides search and execute primitives over the sandbox.
@@ -54,9 +57,14 @@ is a **defined, automatable workflow**, not a habit:
 
 - **`/save`** — the full end-of-session checkpoint: finalize the session
   cluster (`_summary.md` draft → stable), reconcile the touched topic hub's
-  current-truth block, regenerate the manifest, run the binding lint, and
-  commit the vault. This is Tier-1 hygiene firing at the moment drift is
-  created (see `docs/hygiene.md`).
+  current-state block — a **bidirectional** pending reconcile: new pending
+  items appended, priorities (re)assessed, checked-off (`[x]`) items removed
+  from the hub and logged to `log.md` — regenerate the manifest, roll the
+  hubs' pending items up into the vault-root `PENDING.md`, run the binding
+  lint, and commit the vault. This is Tier-1 hygiene firing at the moment
+  drift is created (see `docs/hygiene.md`). The next session start injects
+  **two artifacts**: the manifest and a ≤10-line work-queue digest built from
+  `PENDING.md` + `BINDING_QUEUE.md`.
 - **`/quicksave`** — the mid-session subset: flush working state into the wiki
   nodes (cluster + touched nodes) **without** the git/finalize machinery.
   Cheap enough to run whenever meaningful state has accumulated.
@@ -80,7 +88,7 @@ without a human remembering it.
 | "The user prefers terse responses" | Auto-memory (identity) |
 | "We chose folder-based IPC over HTTP because..." | Wiki vault (decision node) |
 | "What did we try last Tuesday on the keyboard-clear bug?" | Wiki vault (session clusters — the `/save` layer) |
-| "The current state of project X" | Wiki vault (topic hub current-truth block) |
+| "The current state of project X" | Wiki vault (topic hub current-state block) |
 | "The current state of file foo.py" | None — read the file |
 | "All the build output from this CI run" | context-mode |
 
@@ -105,8 +113,9 @@ Different lifecycles, different access patterns, different content shapes. Mixin
 Until 2026-07 this doctrine had a third durable layer: an **episodic capture
 tool** (claude-mem) that recorded every session full-fidelity via
 PostToolUse/Stop hooks and injected a compact digest at session start. It was
-retired after a whole-system audit. The findings generalize, so they stay in
-the doctrine:
+retired after a whole-system audit — retired in the doctrine 2026-07-03,
+decommissioned across the fleet 2026-07-04. The findings generalize, so they
+stay in the doctrine:
 
 **Why it was retired:**
 
@@ -132,7 +141,8 @@ layer can silently fail for days with no symptom, either instrument it (see
 re-audit the ones you have.
 
 **Lesson 2 — a doc-layer retirement isn't a decommission.** Declaring the
-layer dead in the docs left it half-alive for weeks: the installed-plugin
+layer dead in the docs (2026-07-03) left it half-alive until the deliberate
+decommission pass the next day (2026-07-04): the installed-plugin
 record kept loading it, a scheduled-task watchdog kept resurrecting its
 worker, and a marketplace `autoUpdate` flag kept re-cloning it daily. Tearing
 down a layer means hunting every *moving part* — plugin records, scheduled

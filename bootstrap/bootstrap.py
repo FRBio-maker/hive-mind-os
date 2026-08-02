@@ -24,6 +24,9 @@ Planned installs
   identity/AGENTS.md  → ~/.codex/AGENTS.md
   identity/GEMINI.md  → ~/.gemini/GEMINI.md
   identity/GROK.md    → ~/.grok/AGENTS.md   (Grok reads AGENTS.md)
+  identity/KIMI.md    → ~/AGENTS.md         (Kimi reads AGENTS.md from the
+                                             working-directory tree; its global
+                                             file lives at the home root)
 
 Usage
 -----
@@ -80,6 +83,10 @@ def _mappings(home: pathlib.Path):
         ("AGENTS.md",  home / ".codex",   "AGENTS.md"),
         ("GEMINI.md",  home / ".gemini",  "GEMINI.md"),
         ("GROK.md",    home / ".grok",    "AGENTS.md"),
+        # Kimi discovers AGENTS.md from the working-directory tree; its global
+        # identity file lives at the HOME ROOT (~/AGENTS.md), not in a dotdir.
+        # Distinct from Codex's ~/.codex/AGENTS.md above.
+        ("KIMI.md",    home,              "AGENTS.md"),
     ]
 
 

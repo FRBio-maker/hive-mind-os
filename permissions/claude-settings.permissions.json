@@ -1,6 +1,9 @@
 {
   "_doc": "Permission + hook excerpt for ~/.claude/settings.json. Merge these keys into your live settings.json; don't replace the whole file (it also carries machine-specific MCP servers, status line, theme, plugins, etc.). This excerpt is the security-relevant core: what runs silently, what asks, what's blocked.",
 
+  "_windows_note": "PowerShell is a DISTINCT tool from Bash in Claude Code. A Bash-only ruleset is silently bypassed by every PowerShell call — every Bash(...) rule below has a PowerShell(...) mirror, plus PowerShell-specific patterns (Remove-Item, Invoke-Expression/iex). If you add or change a Bash rule, mirror it.",
+
+  "_allow_note": "Read(**) is the permissive option: every file read runs silently except the ask/deny carve-outs below. The reference deployment instead runs a NARROW explicit allow-list (specific tools and paths earned over time) with no blanket Read(**) — stricter, more prompts. Treat Read(**) as optional-permissive; drop it if you prefer ask-list-first (see ../docs/permissions-protocol.md).",
   "permissions": {
     "allow": [
       "Read(**)"
@@ -26,7 +29,31 @@
       "Bash(git push -f* master*)",
       "Bash(git commit*--no-verify*)",
       "Bash(git commit*--no-gpg-sign*)",
-      "Bash(git push*--no-verify*)"
+      "Bash(git push*--no-verify*)",
+      "PowerShell(rm -rf /)",
+      "PowerShell(rm -rf /*)",
+      "PowerShell(rm -rf ~)",
+      "PowerShell(rm -rf ~/*)",
+      "PowerShell(rm -rf $HOME*)",
+      "PowerShell(Remove-Item -Recurse -Force ~*)",
+      "PowerShell(Remove-Item -Recurse -Force $HOME*)",
+      "PowerShell(Remove-Item -Recurse -Force $env:USERPROFILE*)",
+      "PowerShell(Remove-Item ~ -Recurse -Force*)",
+      "PowerShell(Remove-Item $HOME -Recurse -Force*)",
+      "PowerShell(Remove-Item $env:USERPROFILE -Recurse -Force*)",
+      "PowerShell(dd of=/dev/sd*)",
+      "PowerShell(dd of=/dev/nvme*)",
+      "PowerShell(dd of=/dev/disk*)",
+      "PowerShell(dd of=/dev/hd*)",
+      "PowerShell(dd of=/dev/mmcblk*)",
+      "PowerShell(gh auth token*)",
+      "PowerShell(git push --force* main*)",
+      "PowerShell(git push --force* master*)",
+      "PowerShell(git push -f* main*)",
+      "PowerShell(git push -f* master*)",
+      "PowerShell(git commit*--no-verify*)",
+      "PowerShell(git commit*--no-gpg-sign*)",
+      "PowerShell(git push*--no-verify*)"
     ],
     "ask": [
       "Read(**/.ssh/**)",
@@ -44,21 +71,37 @@
       "Bash(wget * | sh*)",
       "Bash(wget * | bash*)",
       "Bash(git push --force *)",
-      "Bash(git push -f *)"
+      "Bash(git push -f *)",
+      "Bash(eval *)",
+      "Bash(source *)",
+      "PowerShell(curl * | sh*)",
+      "PowerShell(curl * | bash*)",
+      "PowerShell(wget * | sh*)",
+      "PowerShell(wget * | bash*)",
+      "PowerShell(git push --force *)",
+      "PowerShell(git push --force*)",
+      "PowerShell(git push -f *)",
+      "PowerShell(*Invoke-Expression*)",
+      "PowerShell(*| iex*)",
+      "PowerShell(*|iex*)"
     ],
-    "defaultMode": "auto"
+    "_eval_note": "Bash(eval *) / Bash(source *) and the PowerShell Invoke-Expression / iex patterns exist for the same reason: shell-eval turns a string into code, hiding the real command from every pattern rule above. Ask, don't allow.",
+    "defaultMode": "auto",
+    "_defaultMode_note": "The reference deployment also sets skipAutoPermissionPrompt: true alongside defaultMode auto — it suppresses the extra native confirmation prompt for calls the auto classifier already resolved, so the classifier's decision is final instead of being double-prompted. Optional; without it you get a second in-terminal confirmation on some auto-resolved calls."
   },
 
-  "_hook_snippet": "OPTIONAL human-in-the-loop relay. If you wire up an approval relay (see ../docs/human-in-the-loop.md), add it to hooks.PreToolUse — merge with existing entries, don't replace the array. Point the command at your own relay; the placeholder below is not a real path.",
+  "_hook_snippet": "OPTIONAL human-in-the-loop relay. If you wire up an approval relay (see ../docs/human-in-the-loop.md), add these to hooks — merge with existing entries, don't replace the arrays. Point the commands at your own relay; the placeholders below are not real paths.",
+  "_hook_matcher_note": "The approval-gate matcher is Bash (add PowerShell on Windows: 'Bash|PowerShell'), NOT 'Bash|Read'. Relaying Read through the hook produced false-positive pages on routine file reads — the adapter's mirror of the ask rules is the read gate, not the hook matcher. Optionally add a separate 'Write|Edit|MultiEdit' PreToolUse entry as the config-protection surface (see 'Agents must not self-modify' in ../docs/permissions-protocol.md).",
+  "_hook_timeout_note": "RULE: a hook's timeout must be >= the relay adapter's own answer window, or the runtime kills the hook while the adapter is still waiting and late phone answers are stranded. Reference adapter window: 86400 s (~24 h) — hence timeout 86400 on the AskUserQuestion and Stop entries below. A 600 s hook timeout strands any phone answer that arrives after 10 minutes.",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|Read",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
             "command": "<your-relay-command>",
-            "timeout": 600
+            "timeout": 86400
           }
         ]
       },
@@ -68,10 +111,22 @@
           {
             "type": "command",
             "command": "<your-ask-relay-command>",
-            "timeout": 600
+            "timeout": 86400
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<your-turn-end-ping-command>",
+            "timeout": 86400
           }
         ]
       }
     ]
-  }
+  },
+  "_stop_hook_note": "The Stop entry is the turn-end ping: mirrors the last assistant message to the phone when AFK, and a phone reply is injected as the next user turn (decision \"block\" with the reply as reason). See ../docs/human-in-the-loop.md, 'Turn-end pings'."
 }

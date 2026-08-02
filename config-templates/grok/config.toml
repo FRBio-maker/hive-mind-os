@@ -16,6 +16,9 @@ permission_mode = "default"
 
 # Project trust: auto-trust specific directories so Grok doesn't re-prompt
 # every session. SUBSTITUTE your own paths — the placeholder below is not a
-# real directory. Add one block per trusted project.
+# real directory. Add one block per trusted project. NOTE: trust grants are
+# permission surface, so this block also appears in
+# ../../permissions/grok-config.permissions.toml — the two files
+# deliberately share the same shape; if you change one, mirror the other.
 [projects.'<your-project-path>']
 trust_level = "trusted"

@@ -1,11 +1,12 @@
 # Start here
 
-*A one-page orientation. Doctrine as of 2026-07-23.*
+*A one-page orientation. Doctrine as of 2026-08-02.*
 
 **What this is:** a portable *operating doctrine* that makes several independent
-AI coding agents (Claude Code, Codex CLI, Gemini CLI, Grok) behave like one
-supervised team — sharing one knowledge graph, one permission model, and one set
-of house rules. It is **not** a running system you install; it is the rulebook,
+AI coding agents (Claude Code, Codex CLI, the Gemini-family worker — Antigravity
+`agy`, since the consumer `gemini` npm CLI shut down 2026-06-18 — Grok, and Kimi
+Code) behave like one supervised team — sharing one knowledge graph, one
+permission model, and one set of house rules. It is **not** a running system you install; it is the rulebook,
 templates, and installer for one. The intelligence is in *shared conditioning and
 shared retrieval*, not agent-to-agent magic.
 
@@ -20,9 +21,10 @@ use whatever you already run).
 | Concern | In this repo? | What it is |
 |---|---|---|
 | **RULES** | ✅ shipped | `identity/` (per-agent doctrine files), `permissions/` (deny/ask/allow excerpts), `docs/` (the protocols), `config-templates/` |
+| **ROLE CONTROL PLANE** | ✅ shipped | `config-templates/hivemind/` (`roles.toml` + `mode.state` + `routing.toml`) and `docs/playbooks/` (CEO / orchestrator / worker) — role is a slot, not an identity |
 | **KNOWLEDGE (starter)** | ✅ shipped | `wiki-template/` — schema + scaffold + manifest generator + binding lint |
 | **INSTALL** | ✅ shipped | `bootstrap/` — symlinks identity files in, with backup + rollback |
-| **EXECUTABLES** | 🔌 you wire | session hooks, delegation routing, shared skills — a separate tooling repo |
+| **EXECUTABLES** | 🔌 you wire | session hooks and delegation wrappers — a separate tooling repo (the routing *table* itself now ships as a template above) |
 | **HUMAN-IN-THE-LOOP** | 🔌 you wire | the approval-relay daemon (phone approvals) — pattern in `docs/human-in-the-loop.md` |
 | **WORKING memory** | 🔌 you wire | a context-offload MCP (e.g. context-mode) — durable memory itself is the wiki + identity layers above |
 | **OS UI / dashboard** | 🔌 you wire | a local dashboard — the hive's cockpit *and* control surface (job runner, autonomous runs, checkpointing, relay control) — pattern in `docs/observability.md` |

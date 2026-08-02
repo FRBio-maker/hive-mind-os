@@ -30,14 +30,34 @@ enforces permissions differently:
 So there is one *model* expressed four ways. The same risky-thing
 patterns — `rm -rf` of root/home, `dd` to raw disks, SSH private-key and
 credential reads, `gh auth token`, `curl | sh`, force-push to main,
-`--no-verify` commits — appear in each *pattern-based* file (Claude,
-Gemini, and Grok-via-Claude-compat). **Codex is the exception:** its
+`--no-verify` commits — **should appear** in each *pattern-based* file
+(Claude, Gemini, and Grok-via-Claude-compat). **Codex is the exception:** its
 `config.toml` carries no inline allow/ask/deny lists — it routes every
 command through its built-in `PermissionRequest` approval event (plus the
 relay), so the same rules are enforced by the approval flow rather than
 expressed as patterns. Change the model in one place and you must mirror it
-into the other pattern-based files. (A future `verify.sh` could diff each
-excerpt against its live config to catch drift; not built yet.)
+into the other pattern-based files.
+
+**Drift is expected, not hypothetical.** Without a verify script diffing
+each excerpt against the live config, published canon and any live
+deployment *will* diverge — a 2026-08 audit of the reference deployment
+found exactly that: the live Claude deny list carried only a subset of the
+canon here (`rm -rf` variants + credential-file reads), with the fuller set
+(raw-disk `dd`, `gh auth token`, force-push-to-main, `--no-verify`) being
+doctrine-to-restore rather than deployed reality. The deny set in these
+files remains the canon; assume any live deployment lags it until a
+`verify.sh` exists (not built yet) or you've diffed by hand.
+
+### Windows deployments — mirror every rule into PowerShell
+
+On Windows, Claude Code exposes **PowerShell as a distinct tool** alongside
+Bash. Permission rules match per-tool: a `Bash(...)`-only ruleset is
+**silently bypassed by every PowerShell call** — the deny/ask patterns
+simply never match. `claude-settings.permissions.json` therefore carries a
+`PowerShell(...)` mirror of every Bash rule, plus PowerShell-specific
+patterns (`Remove-Item -Recurse -Force` home variants in deny;
+`Invoke-Expression` / `| iex` shell-eval in ask). If you add a Bash rule,
+add its PowerShell twin in the same commit.
 
 ## These are excerpts, not whole files
 
@@ -58,6 +78,10 @@ flip those rules to route to your phone instead (see the file's own comments).
 | Deny | `rm -rf` root/home, `dd` to raw disks, SSH private keys (`.ssh/id_*`), `.credentials.json`, `gh auth token`, force-push to main, `--no-verify` commits | Block silently. Never prompt, never run. |
 | Ask  | `curl x \| sh`, force-push, reads of `~/.ssh/**` `~/.env*` | Pause for approval. Optionally routed to a secondary channel via a relay hook. |
 | Auto | everything else | Routed through `defaultMode=auto` — a classifier runs clearly-safe calls silently and escalates risky/ambiguous ones to Ask. (Gemini has no classifier: the shipped policy ships **no** blanket-allow catch-all, so unmatched calls fall to its native `defaultApprovalMode`, which prompts for shell. Keep the deny/ask rules comprehensive there.) |
+
+*Reference deployment status:* the Deny row above is recommended canon; the
+reference deployment currently enforces a subset of it live (see "Drift is
+expected" above). Applying these files as published gives you the full set.
 
 The **Ask** tier can either prompt in-terminal or, if you wire up a
 human-in-the-loop relay (see `../docs/human-in-the-loop.md`), route to a

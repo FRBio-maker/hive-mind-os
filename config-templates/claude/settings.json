@@ -1,29 +1,10 @@
 {
+  "_permissions_note": "Do NOT hand-maintain a rule list here. The canonical allow/ask/deny rule set (including the Windows PowerShell mirror of every Bash rule) lives at ../../permissions/claude-settings.permissions.json — merge THAT file's permissions block into your live ~/.claude/settings.json. The skeleton below only shows the shape; an earlier version of this template restated a weaker subset of the rules and drifted from canon.",
   "permissions": {
     "defaultMode": "auto",
-    "allow": [
-      "Read(**)"
-    ],
-    "ask": [
-      "Read(**/.ssh/**)",
-      "Read(**/.aws/**)",
-      "Read(**/.env)",
-      "Read(**/.env.*)",
-      "Read(**/.netrc)",
-      "Read(**/.npmrc)",
-      "Read(**/.pypirc)",
-      "Read(**/.docker/config.json)",
-      "Read(**/.kube/config)",
-      "Bash(curl * | sh*)",
-      "Bash(curl * | bash*)",
-      "Bash(git push --force *)"
-    ],
-    "deny": [
-      "Read(**/.credentials.json)",
-      "Bash(rm -rf /)",
-      "Bash(rm -rf ~)",
-      "Bash(rm -rf $HOME*)"
-    ]
+    "allow": [],
+    "ask": [],
+    "deny": []
   },
   "hooks": {
     "SessionStart": [
@@ -32,6 +13,42 @@
           {
             "type": "command",
             "command": "python3 \"$HOME/<your-vault>/scripts/session_start_hook.py\""
+          }
+        ]
+      }
+    ]
+  },
+  "_relay_hooks_note": "OPTIONAL relay hook surfaces — requires a relay, see ../../docs/human-in-the-loop.md. These are commented-out placeholders: rename '_hooks_relay_example' to real entries merged into 'hooks' above once your relay exists. Three surfaces: (1) PreToolUse Bash (add '|PowerShell' on Windows) = approval gate; (2) PreToolUse AskUserQuestion = question redirect to phone; (3) Stop = turn-end ping. Timeouts must be >= your relay adapter's answer window (reference: 86400 s) or late phone answers are stranded.",
+  "_hooks_relay_example": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<your-relay-command>",
+            "timeout": 86400
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<your-ask-relay-command>",
+            "timeout": 86400
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<your-turn-end-ping-command>",
+            "timeout": 86400
           }
         ]
       }

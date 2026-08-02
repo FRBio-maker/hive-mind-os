@@ -1,4 +1,6 @@
 {
+  "_legacy_note": "LEGACY RUNTIME: the consumer Gemini CLI shut down 2026-06-18; the reference fleet's Gemini-family worker is now Antigravity (agy). This template is kept for archival/reference value only.",
+  "_hook_shape_note": "Hook entries must nest an inner 'hooks': [...] array — a 'type'/'command' pair placed directly at the entry level will not load. (An earlier version of this template had that bug.)",
   "general": {
     "defaultApprovalMode": "auto_edit"
   },
@@ -8,8 +10,12 @@
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "python3 \"$HOME/<your-vault>/scripts/session_start_hook.py\""
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/<your-vault>/scripts/session_start_hook.py\""
+          }
+        ]
       }
     ]
   }

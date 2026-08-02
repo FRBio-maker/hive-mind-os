@@ -1,54 +1,263 @@
-"""Session-start hook: build and print the wiki manifest to stdout.
+"""SessionStart hook: regenerate manifest + binding queue, inject into agent context.
 
-Designed to be wired into a runtime's SessionStart hook so the manifest
-is injected into the agent's context automatically at the start of each
-session. The manifest is the Layer-1 navigation backbone — a compact list
-of every topic hub and its TL;DR.
+This is the connective tissue between the agent's runtime and the Wiki
+Manifest. On every session start, this script:
+  1. Regenerates `MANIFEST.md` (Layer-1 navigation backbone, via
+     `gen_manifest.py`)
+  2. Regenerates `BINDING_QUEUE.md` (unbound clusters + promotion
+     candidates, via `bind_clusters.py`)
+  3. Regenerates `PENDING.md` — IF a hygiene rollup script exists (see
+     below; the template does not ship one, so this step degrades
+     gracefully to a no-op)
+  4. Emits the manifest plus a <=10-line work-queue digest as
+     `additionalContext` per the Claude Code SessionStart hook protocol
+     (`hookSpecificOutput.additionalContext`).
 
-The agent reads this once at session start, then uses semantic association
-to decide which hubs to walk deeper into on demand.
+IMPORTANT — output format. Claude Code SessionStart hooks must print a
+JSON envelope on stdout; raw markdown on stdout is NOT injected into the
+agent's context. The envelope shape:
+
+    {
+      "hookSpecificOutput": {
+        "hookEventName": "SessionStart",
+        "additionalContext": "<markdown injected into context>"
+      },
+      "continue": true,
+      "suppressOutput": true
+    }
+
+Failure isolation: if regeneration crashes, the script still emits a
+valid JSON envelope (with empty/partial/stale content and an explicit
+warning) so it never blocks session startup. If a previous MANIFEST.md
+exists on disk but regeneration failed, the stale manifest is injected
+anyway — stale beats nothing — behind an explicit STALE warning banner
+so the agent doesn't navigate from an outdated map unknowingly. A crash
+anywhere else produces a stub envelope carrying the traceback. Exit code
+is always 0.
 
 Vault-root resolution (same priority order as sibling scripts):
   1. --root CLI argument
   2. WIKI_ROOT environment variable
   3. Current working directory
 
-Usage:
-    python session_start_hook.py --root <path-to-vault>
-    WIKI_ROOT=<path-to-vault> python session_start_hook.py
-    python session_start_hook.py          # defaults to current dir
+Sibling scripts are invoked via subprocess with the same Python
+interpreter (`sys.executable`, avoids "python not on PATH" surprises),
+a 30s timeout each, and WIKI_ROOT set in the child environment so they
+resolve the same vault root.
 
-The manifest is printed to stdout (for the runtime to inject) and also
-written to <vault>/MANIFEST.md (for human browsing and manual reads).
+Wire into Claude Code via settings.json (adjust the path to where your
+vault lives):
 
-Exit codes:
-    0 — manifest built and printed successfully
-    1 — no topics/ directory found under the vault root
+    "SessionStart": [
+      { "hooks": [
+          { "type": "command",
+            "command": "python \"<vault>/scripts/session_start_hook.py\" --root \"<vault>\""
+          }
+      ]}
+    ]
 """
 
 import argparse
+import json
+import os
+import re
+import subprocess
 import sys
+import traceback
 from pathlib import Path
 
-# Import build_manifest and resolve_root from the sibling gen_manifest
-# module so there is a single source of truth for manifest generation.
-# Both files live in the same scripts/ directory; the import works when
-# this script is run from that directory or via `python -m` with the
-# directory on sys.path.
+# Import resolve_root from the sibling gen_manifest module so there is a
+# single source of truth for vault-root resolution. Both files live in the
+# same scripts/ directory.
 try:
-    from gen_manifest import build_manifest, resolve_root
+    from gen_manifest import resolve_root
 except ImportError:
-    # Fallback: add the directory this file lives in to sys.path, then retry.
     sys.path.insert(0, str(Path(__file__).parent))
-    from gen_manifest import build_manifest, resolve_root
+    from gen_manifest import resolve_root
+
+# Sibling scripts always live next to this file (they ship together).
+SCRIPTS_DIR = Path(__file__).resolve().parent
+GEN_MANIFEST = SCRIPTS_DIR / "gen_manifest.py"
+BIND_CLUSTERS = SCRIPTS_DIR / "bind_clusters.py"
+
+
+def pending_generator(root: Path):
+    """Locate an optional hygiene PENDING rollup script, or None.
+
+    The template does not ship the hygiene suite; if you add one (a
+    script that harvests `- [ ]` pending items from project hubs into
+    `<vault>/PENDING.md`), drop it at either location below and the hook
+    picks it up automatically. Missing script = soft skip, not an error.
+    """
+    candidates = [
+        SCRIPTS_DIR / "hygiene" / "gen_pending.py",
+        root / "scripts" / "hygiene" / "gen_pending.py",
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def run_script(script_path: Path, root: Path) -> tuple:
+    """Run a vault script. Return (success, error_msg).
+
+    Uses sys.executable so we pick up the same Python the hook is
+    running under. Captures stdout/stderr so they don't leak into the
+    hook's JSON output. WIKI_ROOT is set in the child env so sibling
+    scripts resolve the same vault root without needing CLI flags.
+    """
+    if script_path is None or not script_path.exists():
+        return False, f"missing: {script_path}"
+    env = dict(os.environ)
+    env["WIKI_ROOT"] = str(root)
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env=env,
+        )
+        if result.returncode != 0:
+            return False, f"exit {result.returncode}: {result.stderr.strip()[:200]}"
+        return True, ""
+    except subprocess.TimeoutExpired:
+        return False, f"timeout: {script_path.name}"
+    except Exception as exc:  # noqa: BLE001 — isolation: never crash the hook
+        return False, f"{type(exc).__name__}: {exc}"
+
+
+def read_safe(path: Path) -> str:
+    """Read a file. Empty string on any error — never raises."""
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def build_digest(queue_text: str, pending_text: str) -> list:
+    """<=10-line digest replacing raw BINDING_QUEUE + PENDING dumps.
+
+    PENDING.md format: bullets grouped under '## P1 ...' / '## P2 ...' /
+    '## P3 ...' / '## Unprioritized ...' headings. BINDING_QUEUE.md: one
+    '### `slug`' per unbound cluster. Any parse miss degrades to zero
+    counts — never raises. Injecting a digest instead of the full files
+    keeps session-start token cost flat as the queues grow.
+    """
+    section = None
+    counts = {}
+    p1_items = []
+    for line in pending_text.splitlines():
+        header = re.match(r"^## (\S+)", line)
+        if header:
+            section = header.group(1)
+            counts[section] = 0
+            continue
+        if section and re.match(r"^\s*-\s+", line):
+            counts[section] = counts.get(section, 0) + 1
+            if section == "P1" and len(p1_items) < 3:
+                p1_items.append(line.strip()[2:].strip())
+
+    unbound = len(re.findall(r"^### ", queue_text, flags=re.M))
+
+    lines = ["## Wiki work-queue digest"]
+    if pending_text:
+        total = sum(counts.values())
+        breakdown = ", ".join(f"{k}: {v}" for k, v in counts.items()) or "none"
+        lines.append(
+            f"{total} open pending items ({breakdown}) | "
+            f"{unbound} unbound clusters awaiting hub binding. "
+            "Full lists on disk at the vault root: `PENDING.md`, "
+            "`BINDING_QUEUE.md` — read on demand."
+        )
+        if p1_items:
+            lines.append("Top P1 items:")
+            for item in p1_items:
+                lines.append(f"- {item[:200]}")
+    else:
+        # No PENDING.md (the hygiene rollup isn't wired) — queue-only digest.
+        lines.append(
+            f"{unbound} unbound clusters awaiting hub binding. "
+            "Full list on disk at the vault root: `BINDING_QUEUE.md` — "
+            "read on demand."
+        )
+    return lines
+
+
+def build_context(root: Path) -> str:
+    """Compose the additionalContext block from manifest + work-queue digest."""
+    manifest_file = root / "MANIFEST.md"
+    queue_file = root / "BINDING_QUEUE.md"
+    pending_file = root / "PENDING.md"
+
+    parts = []
+
+    # Header — orient the agent on what these blocks are. Kept short: the
+    # full Wiki Protocol lives in the agent's identity file; don't restate
+    # it here.
+    parts.append(
+        "# Wiki state (auto-injected at session start by "
+        "`scripts/session_start_hook.py`)"
+    )
+    parts.append("")
+    parts.append(
+        "Below: the **Wiki Manifest** (scan on every user message per the "
+        "Wiki Protocol in your identity file) and a work-queue digest."
+    )
+    parts.append("")
+    parts.append("---")
+    parts.append("")
+
+    # Regenerate + inject manifest.
+    manifest_ok, manifest_err = run_script(GEN_MANIFEST, root)
+    manifest_text = read_safe(manifest_file)
+    if manifest_text:
+        if not manifest_ok:
+            # Regeneration failed but a previous manifest exists on disk.
+            # Inject it anyway (stale beats nothing) but tell the agent,
+            # so it doesn't navigate from an outdated map unknowingly.
+            parts.append(
+                f"> **WARNING: manifest regeneration failed "
+                f"({manifest_err or 'unknown error'}) — the manifest below "
+                f"is STALE (from a previous session).**"
+            )
+            parts.append("")
+        parts.append(manifest_text.rstrip())
+    else:
+        parts.append("## Wiki Manifest (unavailable)")
+        parts.append("")
+        parts.append(f"`gen_manifest.py` failed: {manifest_err or 'no output'}")
+    parts.append("")
+    parts.append("---")
+    parts.append("")
+
+    # Regenerate the binding queue (and PENDING rollup, if a hygiene script
+    # is wired) ON DISK, but inject only a <=10-line digest — full queue
+    # dumps at every session start cost thousands of tokens for content the
+    # agent rarely needs immediately.
+    queue_ok, _ = run_script(BIND_CLUSTERS, root)
+    gen_pending = pending_generator(root)
+    if gen_pending is not None:
+        pending_ok, _ = run_script(gen_pending, root)
+    else:
+        pending_ok = True  # not shipped -> soft skip, not an error
+    parts.extend(build_digest(read_safe(queue_file), read_safe(pending_file)))
+    if not (queue_ok and pending_ok):
+        parts.append(
+            "> (queue/pending regeneration had errors — digest may be stale)"
+        )
+    parts.append("")
+
+    return "\n".join(parts)
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         prog="session_start_hook",
         description=(
-            "Build the wiki manifest and print it to stdout for "
-            "SessionStart context injection."
+            "Regenerate the wiki manifest + work queue and emit a "
+            "SessionStart JSON envelope for context injection."
         ),
     )
     parser.add_argument(
@@ -58,35 +267,26 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
-    root = resolve_root(args.root)
-    topics = root / "topics"
-    if not topics.is_dir():
-        print(
-            f"ERROR: {topics} does not exist — "
-            "no topics/ directory found under the vault root.",
-            file=sys.stderr,
-        )
-        return 1
-
-    manifest = build_manifest(root=root)
-
-    # Write to MANIFEST.md so the file stays current for manual reads.
-    out = root / "MANIFEST.md"
-    out.write_text(manifest, encoding="utf-8")
-
-    # Reconfigure stdout to UTF-8 before printing, so hub TL;DRs with
-    # non-ASCII characters don't crash on Windows consoles that default
-    # to a legacy codepage.
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, ValueError):
-        pass
+        root = resolve_root(args.root)
+        additional_context = build_context(root)
+    except Exception:  # noqa: BLE001 — never crash session start
+        # Emit a stub envelope with the error so the user knows something
+        # is wrong but the session lives.
+        additional_context = (
+            "# Wiki state (session-start hook crashed)\n\n"
+            "```\n" + traceback.format_exc() + "```\n"
+        )
 
-    # Print to stdout — this is what the SessionStart hook captures and
-    # injects into the agent's context.
-    sys.stdout.write(manifest)
-
-    print(f"\n# wrote manifest to {out}", file=sys.stderr)
+    envelope = {
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": additional_context,
+        },
+        "continue": True,
+        "suppressOutput": True,
+    }
+    sys.stdout.write(json.dumps(envelope))
     return 0
 
 

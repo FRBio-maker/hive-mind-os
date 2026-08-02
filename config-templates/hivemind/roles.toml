@@ -1,0 +1,27 @@
+# Hivemind OS role assignments — the agent-agnostic control plane.
+#
+# Copy this file to wherever your fleet keeps shared state (reference
+# deployment: <tooling-repo>/shared/hivemind/roles.toml) and edit the agent
+# ids to match your fleet. Doctrine: docs/playbooks/README.md.
+#
+# Agent ids are short lowercase handles, one per runtime. The reference
+# fleet uses: claude (Claude Code), codex (Codex CLI), agy (Antigravity —
+# the Gemini-family worker), grok (Grok CLI), kimi (Kimi Code CLI), and
+# flash (the executor tier, docs/executor-tier.md).
+#
+# This file is UPSTREAM of routing.toml: it sets the worker POOL and WHO
+# orchestrates; routing.toml picks which worker in the pool per task class.
+schema_version = 1
+
+[roles.ceo]                 # AWAY apex (unsupervised / overnight runs)
+agent = "kimi"              # holds the apex only while mode.state = away
+
+[roles.orchestrator]        # PRESENT apex (human-in-the-loop)
+agent = "claude"            # holds the apex only while mode.state = present
+
+[roles.workers]
+# Everyone an apex may dispatch to. An apex agent in the "wrong" mode is
+# just a worker. 'flash' — the executor tier — is a first-class member of
+# the pool, not a footnote: routing can send decision-free volume work
+# there like any other worker.
+pool = ["codex", "agy", "grok", "flash", "kimi"]

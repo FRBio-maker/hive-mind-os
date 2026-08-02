@@ -1,4 +1,11 @@
-# Permission excerpt for ~/.grok/config.toml — the permission-relevant key.
+# Permission excerpt for ~/.grok/config.toml — the permission-relevant keys.
+#
+# INHERITANCE CAVEAT: in Claude-compat mode Grok inherits whatever the LIVE
+# Claude settings file actually contains — not what this repo publishes. If
+# your deployment's Claude deny set is a thin subset of the canon in
+# claude-settings.permissions.json (the reference deployment's currently is
+# — see ../permissions/README.md "Drift is expected"), then Grok's deny set
+# is exactly as thin. The published canon only protects you if applied.
 #
 # Grok (xAI CLI) brings itself into the shared Deny/Ask/Auto model in two parts:
 #
@@ -18,7 +25,17 @@
 #    is secondary. "default" prompts on anything unclassified — the stricter
 #    choice. Avoid Grok's "auto" mode: it is flagged experimental.
 #
-# Merge this one key into your live ~/.grok/config.toml:
+# Merge these keys into your live ~/.grok/config.toml:
 
 [ui]
 permission_mode = "default"
+
+# Project trust: auto-trust specific directories so Grok doesn't re-prompt
+# every session. Trust grants are permission surface, so this block lives
+# here AND in ../config-templates/grok/config.toml — the two files
+# deliberately share the same shape; if you change one, mirror the other.
+# SUBSTITUTE your own paths; the placeholder is not a real directory. Don't
+# trust $HOME wholesale (it covers the config files that define these very
+# rules).
+[projects.'<your-project-path>']
+trust_level = "trusted"

@@ -27,8 +27,9 @@ hive-mind-os/
 ├── identity/                 ── RULES: one doctrine file per runtime ───────────
 │   ├── CLAUDE.md             ← Claude Code  → ~/.claude/CLAUDE.md
 │   ├── AGENTS.md             ← Codex CLI    → ~/.codex/AGENTS.md
-│   ├── GEMINI.md             ← Gemini CLI   → ~/.gemini/GEMINI.md
-│   └── GROK.md               ← Grok         → ~/.grok/AGENTS.md  (Grok reads AGENTS.md)
+│   ├── GEMINI.md             ← Gemini-family worker (Antigravity `agy`) → ~/.gemini/GEMINI.md
+│   ├── GROK.md               ← Grok         → ~/.grok/AGENTS.md  (Grok reads AGENTS.md)
+│   └── KIMI.md               ← Kimi Code    → ~/AGENTS.md  (home root; Kimi walks the cwd tree)
 │
 ├── permissions/              ── RULES: versioned permission *excerpts* (keys only)
 │   ├── claude-settings.permissions.json
@@ -43,7 +44,18 @@ hive-mind-os/
 │   ├── codex/config.toml
 │   ├── gemini/settings.json
 │   ├── grok/config.toml
+│   ├── hivemind/             ← the role-slot CONTROL PLANE templates
+│   │   ├── roles.toml        ← who holds the CEO/orchestrator slots + worker pool
+│   │   ├── mode.state        ← 'present' | 'away' (single word — no comments)
+│   │   ├── routing.toml      ← task-class → worker table (install at the
+│   │   │                        orchestrator runtime's config dir)
+│   │   └── README.md
 │   └── README.md
+│
+├── skills/                   ── starter skills (created alongside this doc set)
+│   │                            consult/ · council/ · delegate-external/ · browser-ops/
+├── commands/                 ── starter slash commands
+│                                save.md · quicksave.md · afk.md · back.md
 │
 ├── bootstrap/                ── INSTALL: wire identity files into runtime dirs ──
 │   ├── bootstrap.py          ← cross-platform installer (dry-run default; the
@@ -68,12 +80,20 @@ hive-mind-os/
 │
 └── docs/                     ── DOCS: the protocol, deeper than the identity files
     ├── INFRASTRUCTURE.md     ← the deployed-system view (7 Mermaid diagrams)
+    ├── playbooks/            ← the role-slot doctrine + per-role playbooks
+    │   ├── README.md         ← roles are slots; resolver contract; precedence
+    │   ├── CEO-PLAYBOOK.md
+    │   ├── ORCHESTRATOR-PLAYBOOK.md
+    │   └── WORKER-PLAYBOOK.md
     ├── memory-architecture.md
     ├── permissions-protocol.md
     ├── wiki-protocol.md
     ├── human-in-the-loop.md  ← relay pattern (the relay itself is NOT shipped)
     ├── hygiene.md            ← shipped vs documented-add-on wiki hygiene
-    └── multi-runtime.md      ← cross-runtime parity + divergences
+    ├── multi-runtime.md      ← cross-runtime parity + divergences
+    ├── decision-protocol.md  ← structured decision-making (council/consult patterns)
+    ├── autonomous-runs.md    ← the unsupervised overnight run pattern
+    └── executor-tier.md      ← cheap-model tier behind a local proxy
 ```
 
 **The one structural rule:** `identity/` and `config-templates/` hold *full files*
@@ -101,7 +121,7 @@ flowchart TB
 
     subgraph BYO["🔌 COMPANION — bring or build your own"]
         direction TB
-        T["EXECUTABLES (tooling repo)<br/>hooks · delegate-* bins · routing.toml · shared skills"]
+        T["EXECUTABLES (tooling repo)<br/>hooks · delegate-* bins · shared slash commands<br/>(routing.toml now ships here as a template;<br/>the full skills library is its own versioned repo)"]
         H["HUMAN-IN-THE-LOOP (approval-relay)<br/>daemon · adapters · mailbox<br/>pattern → docs/human-in-the-loop.md"]
         O["OS UI (dashboard)<br/>cockpit + control surface, collector-per-source<br/>pattern → docs/observability.md"]
         C["WORKING-MEMORY<br/>e.g. context-mode MCP (output containment)"]
@@ -177,6 +197,7 @@ flowchart TD
 | `identity/AGENTS.md` | `~/.codex/AGENTS.md`  | |
 | `identity/GEMINI.md` | `~/.gemini/GEMINI.md` | |
 | `identity/GROK.md`   | `~/.grok/AGENTS.md`   | Grok loads `AGENTS.md`, never `GROK.md` |
+| `identity/KIMI.md`   | `~/AGENTS.md`         | Kimi walks the cwd tree for `AGENTS.md`; home root, distinct from Codex's |
 
 The ownership test (`_is_symlink_into_repo`) is what makes `--rollback` safe: it
 resolves the link target and only reclaims a dest whose link points *inside* this
@@ -229,9 +250,13 @@ CI-safe rule — *every cluster binds to a topic hub* (`lint_binding.py`).
 
 | Capability | Status | Where |
 |---|---|---|
-| Identity doctrine (4 runtimes) | **shipped** | `identity/` |
+| Identity doctrine (5 runtimes) | **shipped** | `identity/` |
+| Role control plane (`roles.toml`, `mode.state`) | **shipped (template)** | `config-templates/hivemind/` |
+| Role playbooks (CEO / orchestrator / worker) | **shipped** | `docs/playbooks/` |
 | Permission excerpts + merge guide | **shipped** | `permissions/` |
 | Config starters | **shipped** | `config-templates/` |
+| Starter skills (consult, council, delegate-external, browser-ops) | **shipped** | `skills/` |
+| Starter slash commands (save, quicksave, afk, back) | **shipped** | `commands/` |
 | Installer (symlink/copy/backup/rollback) | **shipped** | `bootstrap/` |
 | Wiki schema + scaffold | **shipped** | `wiki-template/` |
 | Manifest + binding queue + binding lint | **shipped** | `wiki-template/scripts/` |
@@ -239,8 +264,10 @@ CI-safe rule — *every cluster binds to a topic hub* (`lint_binding.py`).
 | Per-hub truth blocks | documented add-on | `docs/hygiene.md` |
 | Contradiction judge (executor-tier LLM) | documented add-on | `docs/hygiene.md` |
 | Source-library ingest (PDF → sidecars) | **not included** | `SCHEMA.md §7` describes the workflow; bring your own ingest step |
-| Delegation routing (`routing.toml`, wrappers) | companion | tooling repo (`docs/INFRASTRUCTURE.md` §6) |
-| Hooks / custom bins / shared skills | companion | tooling repo |
+| Delegation routing table (`routing.toml`) | **shipped (template)** | `config-templates/hivemind/routing.toml` — install at the orchestrator runtime's config dir (reference: `~/.claude/routing.toml`) |
+| Delegation wrappers (dispatch bins) | companion | tooling repo (`docs/INFRASTRUCTURE.md` §6) |
+| Hooks / custom bins | companion | tooling repo |
+| Full skills library | companion | its own versioned repo, installed at the runtime's skills dir (reference: `~/.claude/skills/`); slash commands canonical at `<tooling-repo>/shared/claude-commands/` |
 | Approval relay (daemon + adapters) | companion | `docs/human-in-the-loop.md` |
 | OS dashboard (UI + observability) | companion | `docs/observability.md` |
 | Working-memory (e.g. context-mode) | companion | `docs/memory-architecture.md` |

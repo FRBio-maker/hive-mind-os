@@ -1,12 +1,12 @@
 # Agent Infrastructure — Unified Reference
 
 > **TL;DR (≤80 words):** Eight Mermaid diagrams + tables giving the full picture
-> of how the cross-agent stack interlocks. Four runtimes (Claude / Codex /
-> Gemini / Grok) on two OSes (Linux WSL + Windows) are unified via symlinks into four
+> of how the cross-agent stack interlocks. Five runtimes (Claude / Codex /
+> Gemini-family `agy` / Grok / Kimi) on two OSes (Linux WSL + Windows) are unified via symlinks into four
 > canonical GitHub repos — rules, executables, knowledge, human-in-the-loop.
 > Memory is two durable layers plus an always-on working-memory layer (context-mode), requests
 > flow through a permission pipeline that escalates to a relay for human approval,
-> the orchestrator delegates via `routing.toml`, and a local dashboard is the OS's UI.
+> the orchestrator-slot agent delegates via `routing.toml`, and a local dashboard is the OS's UI.
 
 ## How to read this document
 
@@ -24,12 +24,18 @@ Companion docs:
 
 ---
 
-## 1. The fleet — four agents, two OSes, one logical machine
+## 1. The fleet — five agents, two OSes, one logical machine
 
-The user talks to any of four CLI agents. Each runs on both Linux (WSL) and
-Windows. All eight runtimes pull rules + executables from the same canonical
+The user talks to any of five CLI agents. Each runs on both Linux (WSL) and
+Windows. All runtime instances pull rules + executables from the same canonical
 GitHub repos via symlinks, so identity / hooks / skills stay consistent across
 OSes.
+
+> **Naming note (kept honest):** the Gemini-family worker is **Antigravity
+> (`agy`)**. The consumer `gemini` npm CLI shut down on 2026-06-18; the
+> reference fleet migrated to Antigravity, which runs the same model family,
+> and the `GEMINI.md` identity file was simply re-pointed
+> (`docs/multi-runtime.md`, "Runtimes die; identity files don't").
 
 > **Adopting on macOS?** This diagram is the *author's* rig (Linux WSL +
 > Windows). The doctrine is OS-agnostic: macOS is native Unix, so it follows the
@@ -44,28 +50,32 @@ flowchart TB
 
     subgraph LIN[Linux WSL side]
         direction LR
-        CC_L["Claude Code<br/>~/.claude/<br/>(orchestrator)"]
+        CC_L["Claude Code<br/>~/.claude/<br/>(orchestrator slot, ref.)"]
         CX_L["Codex CLI<br/>~/.codex/<br/>(terminal-grind specialist)"]
-        GM_L["Gemini CLI<br/>~/.gemini/<br/>(long-context specialist)"]
+        GM_L["Gemini-family worker (agy)<br/>~/.gemini/<br/>(long-context specialist)"]
         GK_L["Grok CLI<br/>~/.grok/<br/>(Claude-compat agent)"]
+        KM_L["Kimi Code CLI<br/>~/AGENTS.md<br/>(generalist / CEO slot, ref.)"]
     end
 
     subgraph WIN[Windows side]
         direction LR
         CC_W["Claude Code<br/><your-home>/.claude/"]
         CX_W["Codex CLI<br/><your-home>/.codex/"]
-        GM_W["Gemini CLI<br/><your-home>/.gemini/"]
+        GM_W["Gemini-family worker (agy)<br/><your-home>/.gemini/"]
         GK_W["Grok CLI<br/><your-home>/.grok/"]
+        KM_W["Kimi Code CLI<br/><your-home>/AGENTS.md"]
     end
 
     USER --> CC_L
     USER --> CX_L
     USER --> GM_L
     USER --> GK_L
+    USER --> KM_L
     USER --> CC_W
     USER --> CX_W
     USER --> GM_W
     USER --> GK_W
+    USER --> KM_W
 
     subgraph REPOS[Canonical repos — github.com/your-org/*]
         direction LR
@@ -79,10 +89,12 @@ flowchart TB
     CX_L -.symlinks.-> AHM
     GM_L -.symlinks.-> AHM
     GK_L -.symlinks.-> AHM
+    KM_L -.symlinks.-> AHM
     CC_W -.symlinks.-> AHM
     CX_W -.symlinks.-> AHM
     GM_W -.symlinks.-> AHM
     GK_W -.symlinks.-> AHM
+    KM_W -.symlinks.-> AHM
 
     CC_L -.symlinks.-> ATOOL
     CX_L -.symlinks.-> ATOOL
@@ -104,8 +116,8 @@ flowchart TB
     classDef linux fill:#dfe9f3,stroke:#369
     classDef win fill:#f5e6d8,stroke:#a36
     classDef repo fill:#dfd,stroke:#393,stroke-width:2px
-    class CC_L,CX_L,GM_L,GK_L linux
-    class CC_W,CX_W,GM_W,GK_W win
+    class CC_L,CX_L,GM_L,GK_L,KM_L linux
+    class CC_W,CX_W,GM_W,GK_W,KM_W win
     class AHM,ATOOL,WIKI,RELAY repo
 ```
 
@@ -217,7 +229,7 @@ flowchart LR
 
 **Distinction (and the promotion path):**
 - **Auto-memory** — small, deterministic, *always loaded*. "Who I am, how I work."
-- **Wiki vault** — curated, walkable, *always injected at Layer 1 only* (manifest); deeper layers walked on demand. "I've gone down this trail before." Topic hubs carry the current truth of every project; session state flushes in via the `/save` / `/quicksave` checkpoint workflow (auto-triggered at ~30% context used in the reference rig).
+- **Wiki vault** — curated, walkable, *always injected at Layer 1 only* (manifest); deeper layers walked on demand. "I've gone down this trail before." Topic hubs carry the current state of every project; session state flushes in via the `/save` / `/quicksave` checkpoint workflow (auto-triggered at ~30% context used in the reference rig).
 - **context-mode** — working-memory; not durable. Findings get *promoted* upward into the other two.
 
 **Injection budget:** the session-start sources above are a standing per-session
@@ -324,8 +336,8 @@ reply → re-ask once then deny.
 
 ## 6. Skills, plugins & delegation routing
 
-How the orchestrator (Claude Opus) hands work to specialist runtimes, and how
-shared skills + MCP plugins fit in.
+How the orchestrator-slot agent (Claude in the reference fleet) hands work to
+specialist runtimes, and how skills, slash commands + MCP plugins fit in.
 
 ```mermaid
 flowchart TD
@@ -334,12 +346,13 @@ flowchart TD
         NS_C["Claude native<br/>~/.claude/skills/<br/>+ plugin-shipped<br/>(superpowers:*,<br/> context-mode:*, ...)"]
         NS_CX["Codex native<br/>~/.codex/skills/<br/>(domain-specific tasks)"]
         NS_G["Gemini native<br/>~/.gemini/extensions/<br/>(slash-commands as<br/> extensions)"]
-        SH["SHARED<br/><tooling-repo>/shared/skills/<br/>(delegate-external,<br/> verify, ...)"]
+        SH["SKILLS REPO (own versioned repo)<br/>installed at ~/.claude/skills/<br/>(delegate-external, consult,<br/> council, browser-ops, ...)"]
+        CMD["SLASH COMMANDS<br/><tooling-repo>/shared/claude-commands/<br/>symlinked → ~/.claude/commands/"]
         MCP["MCP PLUGINS<br/>auto-installed via<br/>marketplace.json metadata<br/>(context-mode, ...)"]
     end
 
-    OPUS["Claude Opus<br/>(planner / integrator)"]
-    DEL["delegate-external skill<br/>(reads <tooling-repo>/routing.toml)"]
+    OPUS["Orchestrator-slot agent<br/>(planner / integrator;<br/>Claude in the reference fleet)"]
+    DEL["delegate-external skill<br/>(reads ~/.claude/routing.toml —<br/>template: config-templates/hivemind/)"]
 
     OPUS --> Decide{Task fits a<br/>non-Claude runtime?}
     Decide -->|NO| Inline([Handle inline<br/>in Claude])
@@ -349,18 +362,22 @@ flowchart TD
     Route -->|terminal-agentic grind,<br/>surgical edits| WCX["delegate-codex<br/>(bash wrapper,<br/> Win: .cmd bridge)"]
     Route -->|long-context, cross-file,<br/>frontend/UI| WGM["Gemini-family worker<br/>(wrapper/bridge per<br/> current runtime)"]
     Route -->|live web research,<br/>best-of-N parallel| WGK["grok (native,<br/> no wrapper)"]
+    Route -->|generalist feature work,<br/>second-family review| WKM["kimi (headless<br/>print mode)"]
     Route -->|cheap parallel cleanup| WCX
 
     WCX --> CXR["Codex CLI exec"]
-    WGM --> GMR["Gemini CLI exec"]
+    WGM --> GMR["Antigravity (agy) exec"]
     WGK --> GKR["Grok CLI"]
+    WKM --> KMR["Kimi Code CLI exec"]
 
     CXR --> Result([Result returned])
     GMR --> Result
     GKR --> Result
-    Result --> Review["Opus reviews,<br/>integrates,<br/>surfaces decisions"]
+    KMR --> Result
+    Result --> Review["Orchestrator reviews,<br/>integrates,<br/>surfaces decisions"]
 
     SH -. used by .-> OPUS
+    CMD -. slash commands .-> OPUS
     MCP -. loaded by .-> OPUS
     MCP -. loaded by .-> CXR
     MCP -. loaded by .-> GMR
@@ -368,18 +385,38 @@ flowchart TD
     classDef inv fill:#dfe9f3,stroke:#369
     classDef plan fill:#fffbe6,stroke:#a83
     classDef exec fill:#dfd,stroke:#393
-    class NS_C,NS_CX,NS_G,SH,MCP inv
+    class NS_C,NS_CX,NS_G,SH,CMD,MCP inv
     class OPUS,DEL,Decide,Route plan
-    class WCX,WGM,CXR,GMR,Review exec
+    class WCX,WGM,WKM,CXR,GMR,KMR,Review exec
 ```
 
-**Why bash wrappers and not in-Claude tool calls:** Codex / Gemini run as their
-own processes with their own permission models and sandboxes. The wrappers
-(`delegate-codex`, `delegate-gemini` — and `.cmd` bridges on Windows) provide a
-single stable interface that survives version bumps in either CLI. **Grok has no
-wrapper** — it is driven natively (`grok -p` / `--prompt-file`), because the same
-`.cmd`→WSL bridge the others use is unreliable on some Windows setups; read-only
-dispatches are made safe by allowing only read tools and stripping mutating ones.
+**Why bash wrappers and not in-Claude tool calls:** Codex / the Gemini-family
+worker run as their own processes with their own permission models and
+sandboxes. The wrappers (`delegate-codex`, the `agy` headless bridge — and
+`.cmd` bridges on Windows) provide a single stable interface that survives
+version bumps in either CLI. **Grok has no wrapper** — it is driven natively
+(`grok -p` / `--prompt-file`), because the same `.cmd`→WSL bridge the others
+use is unreliable on some Windows setups; read-only dispatches are made safe by
+allowing only read tools and stripping mutating ones. Kimi is likewise driven
+natively in headless print mode.
+
+**Where skills actually live (corrected):** the skills library is **its own
+versioned git repo, installed in place at the runtime's skills dir**
+(reference: `~/.claude/skills/` *is* the repo) — it is *not* a
+`shared/skills/` subtree of the tooling repo. Slash commands are the piece the
+tooling repo carries: canonical at `<tooling-repo>/shared/claude-commands/`,
+symlinked into `~/.claude/commands/`. Beyond the delegation and browser skills,
+the reference skills repo carries a quality tier worth naming:
+
+- **debt-review** — whole-codebase tech-debt and AI-code-smell audit.
+- **agent-architecture-audit** — 12-layer diagnostic for agent/LLM apps.
+- **agent-eval** — head-to-head comparison of coding agents on custom tasks.
+
+This public repo now ships **starter** versions of the core skills in
+`skills/` (`consult`, `council`, `delegate-external`, `browser-ops`) and
+starter slash commands in `commands/` (`save.md`, `quicksave.md`, `afk.md`,
+`back.md`) — enough to run the doctrine day one; grow your own repo from
+there.
 
 ---
 
@@ -421,7 +458,7 @@ flowchart TB
         JOBS["JOB RUNNER<br/>jobs board · scheduler-registered<br/>ARM = human confirm<br/>+ passing dry-run of real cmd<br/>job LLM calls → executor tier"]
         WOLF["AUTONOMOUS RUNS<br/>('lone wolf' overnight)<br/>CEO session → scoped orchestrators<br/>→ workers per routing.toml<br/>review gate per work package<br/>isolated branch, never auto-merged<br/>→ morning report"]
         CKPT["CHECKPOINTING<br/>/save — full: finalize cluster,<br/>handoff, commit<br/>/quicksave — mid-session flush"]
-        AWAY["RELAY PRESENCE<br/>away-mode toggle<br/>(phone vs terminal approvals)"]
+        AWAY["RELAY PRESENCE<br/>(AFK) toggle<br/>(phone vs terminal approvals)"]
     end
 
     WRITE --> JOBS
@@ -448,6 +485,12 @@ autonomous run cannot merge — its branch waits for a human, and every work
 package passes a review gate before the next builds on it. The dashboard is
 where both gates are visible.
 
+> ⚠️ **The relay presence (AFK) toggle is not `mode.state = away`.** The AFK
+> toggle only routes approval prompts to the phone instead of the terminal.
+> The hivemind control plane's `mode.state = away` hands the apex to the
+> CEO-slot agent for unsupervised operation (`docs/playbooks/README.md`).
+> Same word, very different blast radius.
+
 ---
 
 ## 8. The complete system — one view
@@ -459,12 +502,13 @@ component affects the others.
 flowchart TB
     USER([User])
 
-    subgraph RUNTIMES[Agent runtimes — 4 agents × 2 OSes]
+    subgraph RUNTIMES[Agent runtimes — 5 agents × 2 OSes]
         direction LR
         CCR["Claude Code"]
         CXR["Codex CLI"]
-        GMR["Gemini CLI"]
+        GMR["Gemini-family (agy)"]
         GKR["Grok CLI"]
+        KMR["Kimi Code CLI"]
     end
 
     subgraph CANON[Canonical GitHub repos]
@@ -518,7 +562,7 @@ flowchart TB
     USER -. browser .-> DASH
     DASH -. reads every layer .-> RUNTIMES
     WOLF -. dispatches per routing.toml .-> RUNTIMES
-    DASH -. away-mode toggle .-> DMN
+    DASH -. "relay presence (AFK) toggle" .-> DMN
 
     RUNTIMES -.symlinks.-> AHM
     RUNTIMES -.symlinks.-> ATOOL
@@ -543,6 +587,7 @@ flowchart TB
 
     CCR -. delegate-external .-> CXR
     CCR -. delegate-external .-> GMR
+    CCR -. delegate-external .-> KMR
 
     AHM -.git push/pull.-> RUNTIMES
     ATOOL -.git push/pull.-> RUNTIMES
@@ -561,22 +606,22 @@ symlink (or merge target), not a copy.
 | Repo | What it holds | Why it exists |
 |---|---|---|
 | `hive-mind-os` | identity files, permission excerpts, protocol docs | the **rules** layer — what each agent reads at startup |
-| Tooling repo | hooks, custom bins, routing.toml, shared skills, plugin metadata | the **executables** layer — runnable code shared across agents; lives in a separate repo from this one |
+| Tooling repo | hooks, custom bins, shared slash commands (`shared/claude-commands/`), the role control plane (`shared/hivemind/`), plugin metadata | the **executables** layer — runnable code shared across agents; lives in a separate repo from this one. (The skills library is *not* here — it's its own versioned repo installed at the runtime's skills dir; the routing table lives at the orchestrator runtime's config dir, template in `config-templates/hivemind/`.) |
 | Knowledge-graph vault | wiki vault — topic hubs, clusters, sources | the **knowledge** layer — semantic memory; this repo ships a starter template under `wiki-template/` |
 | `approval-relay` | daemon, adapters, mailbox protocol, systemd units | the **human-in-the-loop** layer |
 | Executor-tier proxy | small local proxy in front of a hosted cheap-model API (holds the key, routes on `model`, paces requests; config versioned, key never) | the **executor** layer — decision-free grunt work; companion, pattern in `docs/executor-tier.md` (local inference documented as the alternative) |
 
 ## Per-agent surface area (what each runtime exposes)
 
-| Surface | Claude Code | Codex CLI | Gemini CLI |
-|---|---|---|---|
-| Identity file | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` | `~/.gemini/GEMINI.md` |
-| Permission settings | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.gemini/settings.json` + `~/.gemini/policies/` |
-| Hooks | `~/.claude/hooks/` | `~/.codex/hooks/` | (via extensions) |
-| Skills | `~/.claude/skills/` + plugin-shipped | `~/.codex/skills/` | `~/.gemini/extensions/` |
-| Plugins / marketplaces | `settings.json` marketplaces | `config.toml` marketplaces | extensions |
-| Auto-memory | `~/.claude/projects/<p>/memory/` | (none — in AGENTS.md) | (none — in GEMINI.md) |
-| Adapter for approval relay | `approval-relay/adapters/claude/` | `approval-relay/adapters/codex/` | `approval-relay/adapters/gemini/` |
+| Surface | Claude Code | Codex CLI | Gemini-family (agy) | Kimi Code CLI |
+|---|---|---|---|---|
+| Identity file | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` | `~/.gemini/GEMINI.md` | `~/AGENTS.md` (home root) |
+| Permission settings | `~/.claude/settings.json` | `~/.codex/config.toml` | `~/.gemini/settings.json` + `~/.gemini/policies/` | `~/.kimi-code/config.toml` |
+| Hooks | `~/.claude/hooks/` | `~/.codex/hooks/` | (via extensions) | `~/.kimi-code/hooks/` |
+| Skills | `~/.claude/skills/` (own versioned repo) + plugin-shipped | `~/.codex/skills/` | `~/.gemini/extensions/` | (native subagents) |
+| Plugins / marketplaces | `settings.json` marketplaces | `config.toml` marketplaces | extensions | `~/.kimi-code/mcp.json` (MCP) |
+| Auto-memory | `~/.claude/projects/<p>/memory/` | (none — in AGENTS.md) | (none — in GEMINI.md) | (none — in AGENTS.md) |
+| Adapter for approval relay | `approval-relay/adapters/claude/` | `approval-relay/adapters/codex/` | `approval-relay/adapters/gemini/` | `approval-relay/adapters/kimi/` |
 
 ## Where everything lives — file map
 
@@ -588,12 +633,14 @@ symlink (or merge target), not a copy.
 | Knowledge-graph vault | `<your-home>/Obsidian/` (or your chosen vault root) |
 | Knowledge-graph vault (Linux view) | `<vault>/` (symlinked or native) |
 | approval-relay | `<your-home>/approval-relay/` |
-| Identity sources (OS-agnostic) | `hive-mind-os/identity/{CLAUDE,AGENTS,GEMINI,GROK}.md` |
+| Identity sources (OS-agnostic) | `hive-mind-os/identity/{CLAUDE,AGENTS,GEMINI,GROK,KIMI}.md` |
 | Permission excerpts | `hive-mind-os/permissions/` |
 | Bootstrap scripts | `hive-mind-os/bootstrap/{bootstrap.py, setup-linux.sh, setup-windows.ps1}` |
-| Shared skills | `<tooling-repo>/shared/skills/` |
-| Delegation wrappers | `<tooling-repo>/bin/{delegate-codex,delegate-gemini}` |
-| Routing rules | `<tooling-repo>/{claude,codex,gemini}/routing.toml` |
+| Role control plane (`roles.toml`, `mode.state`) | `<tooling-repo>/shared/hivemind/` (templates: `hive-mind-os/config-templates/hivemind/`) |
+| Skills library | its own versioned repo, installed at `~/.claude/skills/` (starter skills: `hive-mind-os/skills/`) |
+| Slash commands | `<tooling-repo>/shared/claude-commands/` → symlinked `~/.claude/commands/` (starters: `hive-mind-os/commands/`) |
+| Delegation wrappers | `<tooling-repo>/bin/` (`delegate-codex`, the `agy` headless bridge) |
+| Routing rules | orchestrator runtime's config dir — reference `~/.claude/routing.toml` (template: `hive-mind-os/config-templates/hivemind/routing.toml`) |
 | Relay daemon | `<your-home>/approval-relay/daemon.py` |
 | systemd unit | `<your-home>/approval-relay/systemd/approver.service` |
 | Mailbox | `<your-home>/approval-relay/mailbox/` |
@@ -621,4 +668,4 @@ Wiki Protocol, and session state flushes back in via `/save` / `/quicksave`
 checkpoints. Context-mode is working memory; durable findings get promoted
 upward.
 
-Three rules, four runtimes (eight instances across two OSes), four repos, one logical machine.
+Three rules, five runtimes (ten instances across two OSes), four repos, one logical machine.

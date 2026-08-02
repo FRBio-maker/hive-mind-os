@@ -118,10 +118,20 @@ Closed taxonomy. Use `custom` only after declaring the new type in this SCHEMA.m
 
 **Topic hubs carry a `hub_kind` frontmatter field — `project` or `reference`:**
 
-- **`project`** — the hub tracks something with *evolving state* (built / retired / broken / in-progress): a subsystem you maintain, a named product, the wiki itself. These hubs carry a living `## Current truth (as of <date>)` block, reconciled at session-save time and stamped with `truth_reconciled`.
-- **`reference`** — the hub *accumulates facts that don't reverse*: domain knowledge (a science field, a math area), literature hubs, and test fixtures. No truth block — a "state of the project" headline would be filler. New facts append; they don't supersede a project decision.
+- **`project`** — the hub tracks something with *evolving state* (built / retired / broken / in-progress): a subsystem you maintain, a named product, the wiki itself. These hubs carry a living `## Current state (as of <date>)` block, reconciled at session-save time and stamped with `state_reconciled`.
+- **`reference`** — the hub *accumulates facts that don't reverse*: domain knowledge (a science field, a math area), literature hubs, and test fixtures. No state block — a "state of the project" headline would be filler. New facts append; they don't supersede a project decision.
 
-The field is what the tooling reads to decide whether a hub gets a truth block, so a bootstrap pass never has to re-judge by hand. A hygiene pass can stamp it across all hubs (the project set is the human judgment call; everything else defaults to `reference` and is reported for review). A `reference` hub that grows real evolving state can be promoted to `project` — add it to the set, re-run, then bootstrap its truth block.
+The field is what the tooling reads to decide whether a hub gets a state block, so a bootstrap pass never has to re-judge by hand. A hygiene pass can stamp it across all hubs (the project set is the human judgment call; everything else defaults to `reference` and is reported for review). A `reference` hub that grows real evolving state can be promoted to `project` — add it to the set, re-run, then bootstrap its state block.
+
+**Project hubs end their `## Current state` block with a `### Pending / future directions` subsection** — a checkbox list of open work:
+
+```markdown
+### Pending / future directions
+- [ ] (P1, 2026-06-14) Fix the proxy mid-session watchdog gap.
+- [ ] (P3, 2026-06-13) Push extraction-contract-v2 to master.
+```
+
+Each item is `- [ ] (P1|P2|P3, YYYY-MM-DD) one-line description`. **Priority (P1 highest) is assigned semantically at `/save` (or your session-end command), not hand-entered** — a forgotten bug outranks a forgotten push; the add-date drives staleness. Both metadata are optional on a freshly-captured item. The hygiene pass harvests these subsections and rolls them into a `PENDING.md` at the vault root, injected at session start beside the manifest. *(Honest note: the harvest scripts are not shipped with this template — the session-start hook picks up a `scripts/hygiene/gen_pending.py` if you add one, and degrades to a queue-only digest if you don't.)* The `/save` state-reconcile is **bidirectional**: new items appended, priorities (re)assessed, and checked-off (`[x]`) items removed from the hub and logged to `log.md` — no checkbox graveyard, full history in the right layer.
 
 ## 5. Edge types (9)
 
@@ -137,6 +147,17 @@ The field is what the tooling reads to decide whether a hub gets a truth block, 
 | **followed_by** | A → B | A comes before B in time. | 0.7 |
 | **authored_by** | A → B | B is the author/originator of A. | 1.0 |
 
+**This is a CLOSED set — use ONLY these 9.** Do not invent relationship names; the pre-commit guard (`scripts/lint_edges.py`) rejects anything else and blocks the commit. Map the temptations onto the closed set:
+
+| Tempting off-schema rel | Use instead |
+|---|---|
+| `continues`, `follows` | `preceded_by` |
+| `precedes` | `followed_by` |
+| `contains`, `has_part` | flip to `part_of` on the member node |
+| `uses` | `depends_on` |
+| `extends`, `refines`, `caused_by` | `derived_from` |
+| `validates`, `resolves` | `supports` |
+
 **Bidirectional edges** (`contradicts`, `related_to`) are written once on the source node; lint ensures the reverse exists on the target.
 
 **Weights are starting defaults.** Tune per-edge when the relationship is unusually strong or weak. Weights drive prioritized traversal — when budget is tight, the agent walks higher-weight edges first.
@@ -145,11 +166,11 @@ The field is what the tooling reads to decide whether a hub gets a truth block, 
 
 When gathering context for a task, walk the graph in three tiers, expanding only as needed.
 
-**Tier 1 — find the relevant cluster(s).**
-Scan cluster summaries (`_summary.md` of each session-cluster, plus topic-hub `concept` nodes). Each is cheap (TL;DR ≤80 words + edges). Cluster count stays in the dozens, not thousands.
+**Tier 1 — find the relevant hub(s).**
+Scan the manifest of topic hubs (`MANIFEST.md`, built by `scripts/gen_manifest.py` from `topics/*.md`). Each entry is cheap (hub title + truncated TL;DR); hub count stays in the dozens, not thousands. Session-cluster summaries are **not** listed at this tier — they are Tier 2, reached by descending from a matched hub.
 
-**Tier 2 — scan in-cluster nodes.**
-Within a relevant cluster, read frontmatter + TL;DR + Connections of each member node (~30 lines per node). Decide which need deeper reading.
+**Tier 2 — descend from the hub: cluster summaries, then in-cluster nodes.**
+From a matched hub, walk its edges to the relevant session-cluster `_summary.md` files, then read frontmatter + TL;DR + Connections of each member node (~30 lines per node). Decide which need deeper reading.
 
 **Tier 3 — read detail on demand.**
 Only nodes whose TL;DR earned it get expanded into their `## Detail` section.
@@ -174,7 +195,7 @@ This protocol is the reason for every other constraint in this schema — the TL
 - Each new node gets a `part_of` edge back to `_summary.md`.
 - Member node `created:` dates match the session date.
 
-**Session end** (triggered by a session-end command, "summarize this session into the wiki", or the agent recognizing the session winding down):
+**Session end** (triggered by `/save` (or your session-end command), "summarize this session into the wiki", or the agent recognizing the session winding down):
 
 - Finalize `_summary.md` with the real TL;DR + edges + Detail (what got produced, decisions made, open threads carried forward).
 - `status` flips to `stable`.
@@ -226,6 +247,8 @@ A `concept` node born in a session cluster *migrates* to `topics/` once it has e
 **Demotion** is the inverse: a node in `topics/` whose inbound-edge count drops below 2 is flagged as a topic-hub orphan; user either re-links it or moves it back to its origin cluster (or to `_archive/`).
 
 ### Lint (periodic health check, including `--prune`)
+
+**What ships vs. what is described.** The shipped linters are `scripts/lint_edges.py` (edge vocabulary — rejects any `rel:` outside the closed §5 set, both in frontmatter and in `## Connections` annotations) and `scripts/lint_binding.py` (cluster binding — every session cluster must carry a `related_to topics/*` edge). The fuller hygiene suite below — TL;DR length, frontmatter↔Connections sync, reverse edges, auto `part_of`, split threshold — is **described, not shipped**: treat it as the target contract for checks you add as your vault grows.
 
 **Structural checks:**
 

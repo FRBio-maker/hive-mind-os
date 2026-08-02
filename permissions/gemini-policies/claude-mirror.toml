@@ -1,25 +1,40 @@
+# ============================================================================
+# LEGACY RUNTIME NOTICE: the consumer Gemini CLI shut down 2026-06-18. The
+# reference fleet's Gemini-family worker is now Antigravity (agy). This file
+# is kept as a POLICY-MIRROR REFERENCE — a worked example of expressing the
+# shared Claude-style permission model as TOML policy rules — not as a config
+# you can expect a supported runtime to load.
+# ============================================================================
+#
 # This policy mirrors the shared Claude-style permission model for Gemini's
 # terminal prompt. It works in tandem with an optional approval relay hook
 # (see ../../docs/human-in-the-loop.md) that enforces the "ask" rules on a
 # secondary channel (e.g. your phone). Drop this file at ~/.gemini/policies/.
+#
+# PATH-REGEX PORTABILITY: regexes must match BOTH `/` and `\` on Windows
+# deployments. Tool args are matched as JSON-serialized strings, where a
+# Windows backslash appears as `\\` (two characters) — so every path
+# separator below uses the alternation `[/\\]+`, which matches one POSIX
+# slash or the escaped-backslash pair. A POSIX-only `/` silently misses
+# every Windows path (fails open).
 
 # 1. DENY rules: Block dangerous operations without prompting.
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.credentials\\.json"'
+argsPattern = '"file_path":\s*".*[/\\]+\.credentials\.json"'
 decision = "deny"
 priority = 900
 denyMessage = "Access to credential files is forbidden."
 
 [[rule]]
 toolName = "run_shell_command"
-commandRegex = "rm -rf (\\/|\\/\\*|~|~\\/\\*|\\$HOME.*)"
+commandRegex = 'rm -rf ([/\\]+|[/\\]+\*|~|~[/\\]+\*|\$HOME.*)'
 decision = "deny"
 priority = 900
 
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.ssh/id_[^"]*"'
+argsPattern = '"file_path":\s*".*[/\\]+\.ssh[/\\]+id_[^"]*"'
 decision = "deny"
 priority = 900
 denyMessage = "Reading SSH private keys is forbidden."
@@ -60,21 +75,21 @@ denyMessage = "Bypassing commit hooks/signing requires explicit human action."
 # one, "allow" lets these risky operations run silently (fails open).
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.ssh/.*"'
+argsPattern = '"file_path":\s*".*[/\\]+\.ssh[/\\]+.*"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800
 
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.aws/.*"'
+argsPattern = '"file_path":\s*".*[/\\]+\.aws[/\\]+.*"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800
 
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.gnupg/.*"'
+argsPattern = '"file_path":\s*".*[/\\]+\.gnupg[/\\]+.*"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800
@@ -89,35 +104,35 @@ priority = 800
 # Token-bearing config files (registry creds, container/cluster auth, FTP creds).
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.netrc"'
+argsPattern = '"file_path":\s*".*[/\\]+\.netrc"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800
 
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.npmrc"'
+argsPattern = '"file_path":\s*".*[/\\]+\.npmrc"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800
 
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.pypirc"'
+argsPattern = '"file_path":\s*".*[/\\]+\.pypirc"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800
 
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.docker/config\\.json"'
+argsPattern = '"file_path":\s*".*[/\\]+\.docker[/\\]+config\.json"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800
 
 [[rule]]
 toolName = "read_file"
-argsPattern = '"file_path":\s*".*/\\.kube/config"'
+argsPattern = '"file_path":\s*".*[/\\]+\.kube[/\\]+config"'
 decision = "ask_user"
 phone_decision = "ask_user"
 priority = 800

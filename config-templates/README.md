@@ -11,9 +11,15 @@ config-templates/
 ├── README.md            ← you are here
 ├── claude/settings.json ← Claude Code: ~/.claude/settings.json
 ├── codex/config.toml    ← Codex CLI:  ~/.codex/config.toml
-├── gemini/settings.json ← Gemini CLI: ~/.gemini/settings.json
-└── grok/config.toml     ← Grok CLI:   ~/.grok/config.toml
+├── gemini/settings.json ← Gemini CLI: ~/.gemini/settings.json (legacy)
+├── grok/config.toml     ← Grok CLI:   ~/.grok/config.toml
+└── hivemind/            ← control-plane templates (roles.toml, mode.state,
+                           routing.toml) — being added separately
 ```
+
+Note: the `gemini/` template is **legacy/archival** — the consumer Gemini
+CLI shut down 2026-06-18 and the reference fleet's Gemini-family worker is
+now Antigravity (agy). Kept for reference value only.
 
 A note on placeholders: substitute `$HOME`, `~/`, `<your-vault>`, and
 `<your-project-path>` with your real locations before use. The templates
@@ -32,13 +38,16 @@ Claude Code reads `~/.claude/settings.json` at startup.
 
 - **`permissions.defaultMode`** — `"auto"` routes calls that aren't explicitly
   flagged through a classifier (clearly-safe → run, risky/ambiguous → ask). The
-  `allow` / `ask` / `deny` lists are explicit overrides. See `../permissions/`
-  for the fuller rule set and the cross-agent model.
-  - `allow` — patterns that run silently (here: all reads).
-  - `ask` — patterns that pause for confirmation (credential-dir reads,
-    piped-shell installers, force-push).
-  - `deny` — patterns blocked outright, never prompted (`rm -rf` of root
-    or home, credential files).
+  `allow` / `ask` / `deny` lists are explicit overrides. The template ships
+  these lists **empty on purpose**: the canonical rule set (including the
+  Windows PowerShell mirror of every Bash rule) lives at
+  `../permissions/claude-settings.permissions.json` — merge that file's
+  `permissions` block rather than maintaining a second, weaker copy here.
+- **Relay hook placeholders** — the `_hooks_relay_example` key holds the
+  three optional relay surfaces (PreToolUse Bash approval gate, PreToolUse
+  AskUserQuestion redirect, Stop turn-end ping). They require a relay — see
+  `../docs/human-in-the-loop.md` — and are inert under the `_`-prefixed key
+  until you merge them into `hooks` with your own commands.
 - **`hooks.SessionStart`** — one illustrative hook that runs a
   session-start script at a generic path (`$HOME/<your-vault>/scripts/
   session_start_hook.py`). This is where you'd wire in a manifest
@@ -61,8 +70,11 @@ Codex CLI reads `~/.codex/config.toml`.
 
 ## gemini/settings.json
 
+**Legacy/archival** (see note at top — consumer Gemini CLI shut down
+2026-06-18; the fleet's Gemini-family worker is now Antigravity/agy).
 Gemini CLI reads `~/.gemini/settings.json`. Note: Gemini hook timeouts
-are in **milliseconds**, not seconds.
+are in **milliseconds**, not seconds. Hook entries must nest an inner
+`"hooks": [...]` array — `type`/`command` at the entry level won't load.
 
 - **`general.defaultApprovalMode`** — `"auto_edit"` auto-approves edits
   but still prompts for shell commands. (Don't set `"yolo"` here — it's

@@ -109,10 +109,13 @@ expensive, rate-limited agents.
 ### 2. Autonomous-run orchestration (the overnight "lone wolf" pattern)
 
 Unsupervised multi-agent execution of a specced goal, structured so that no
-human is needed until morning — and no damage is possible before then:
+human is needed until morning — and no damage is possible before then (deeper:
+`docs/autonomous-runs.md`):
 
-- One **CEO session** owns the goal and spawns **scoped orchestrators**, each
-  bounded to a work package it can finish within its context budget.
+- One **CEO session** — the agent holding the CEO slot in `roles.toml`, with
+  the control plane's `mode.state` flipped to `away` — owns the goal and
+  spawns **scoped orchestrators**, each bounded to a work package it can
+  finish within its context budget.
 - Orchestrators **dispatch workers per the routing table** (the same
   `routing.toml` the daytime fleet uses — no special overnight roster).
 - **Review gates per work package**: each package passes verification and
@@ -125,6 +128,17 @@ human is needed until morning — and no damage is possible before then:
 
 The dashboard's autonomous-runs panel is the live window into this — and the
 kill switch.
+
+**Safety rails and the mode.state handback.** The CEO slot runs under hard
+rails (`docs/playbooks/CEO-PLAYBOOK.md`): never merge to main or the
+integration branch; no force-push, history rewrite, or deleting outside the
+isolated worktree; no metered paid APIs; nothing that changes durable non-repo
+state. Anything in those classes is deferred into the log for the human, not
+attempted. And on exit the run must restore `mode.state` to `present` on
+**both** paths — the normal wrap-up *and* the crash path (enforced by a
+top-level cleanup trap / `finally` block that fires even if the run is
+killed). A `mode.state` stuck on `away` is itself a failure condition, and
+exactly the kind of silent state drift this panel exists to surface.
 
 ### 3. Session checkpointing
 
@@ -142,10 +156,15 @@ panel shows whether checkpoints are actually landing.
 
 ### 4. Relay presence control
 
-An **away-mode toggle** for the approval relay (`docs/human-in-the-loop.md`):
-flip whether approval requests route to the phone (away) or the terminal
-(present) from the same page that shows the relay's health. Presence is OS
-state, so it lives in the OS's UI.
+A **relay presence (AFK) toggle** for the approval relay
+(`docs/human-in-the-loop.md`): flip whether approval requests route to the
+phone (AFK) or the terminal (at keyboard) from the same page that shows the
+relay's health. Presence is OS state, so it lives in the OS's UI.
+
+> ⚠️ Not to be confused with the hivemind control plane's `mode.state = away`
+> (capability 2 above), which hands the apex to the CEO agent for
+> unsupervised operation. The AFK toggle changes where prompts appear; the
+> mode file changes who is in charge.
 
 Keep the read path and the write path visibly separate. A control plane that
 grew out of a read-only cockpit inherits its trust; one that started with

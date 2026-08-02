@@ -80,7 +80,11 @@ def extract_tldr(hub_path: Path) -> str:
     m = TLDR_PATTERN.search(content)
     if not m:
         return ""
-    return m.group(1).strip().replace("\n", " ")
+    # Multi-line TL;DR blockquotes carry a "> " prefix on every continuation
+    # line. Strip those markers before flattening, or they leak into the
+    # manifest as stray ">" characters mid-sentence.
+    lines = [re.sub(r"^\s*>\s?", "", ln) for ln in m.group(1).splitlines()]
+    return " ".join(ln.strip() for ln in lines if ln.strip())
 
 
 def discover_hubs(root: Path) -> dict:
@@ -181,9 +185,22 @@ def main(argv=None) -> int:
         print(f"ERROR: {topics} does not exist", file=sys.stderr)
         return 1
 
-    manifest = build_manifest(root=root)
+    hubs = discover_hubs(root)
+    if not hubs:
+        # An empty manifest would silently blank the agent's navigation
+        # backbone — treat 0 hubs as an error so the session-start hook
+        # falls back to the previous manifest with a STALE warning.
+        print(f"ERROR: no hubs found under {topics}", file=sys.stderr)
+        return 1
+
+    manifest = render_manifest(hubs)
     out = root / "MANIFEST.md"
-    out.write_text(manifest, encoding="utf-8")
+    # Atomic write: the SessionStart hook can read MANIFEST.md at any
+    # moment, so write a temp file in the same directory and os.replace
+    # it — a reader never sees a half-written manifest.
+    tmp = out.with_suffix(".md.tmp")
+    tmp.write_text(manifest, encoding="utf-8")
+    os.replace(tmp, out)
 
     # Some consoles default to a non-UTF-8 codec; force utf-8 so the stdout
     # echo never crashes on non-Latin-1 chars in hub TL;DRs.

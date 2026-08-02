@@ -18,7 +18,7 @@ a per-session check structurally cannot see.
 
 **Tier 1 — write-time, at session save (primary).**
 When a session that touched the graph is finalized, reconcile the affected topic
-hub against the cluster just produced: rewrite the hub's "current truth" to fold
+hub against the cluster just produced: rewrite the hub's "current state" to fold
 in what changed, and bind any orphaned cluster to its hub. Precise, scoped to
 exactly what changed, gated by a diff a human confirms. This is where most drift
 is caught, because this is where most drift is *created*.
@@ -50,7 +50,8 @@ cheap-tier model or a local one; see `docs/executor-tier.md`).
 | Title-only manifest generation | — | **shipped** (`gen_manifest.py`) |
 | Binding queue (orphan-cluster finder) | 1 | **shipped** (`bind_clusters.py`) |
 | Binding lint (CI gate) | 1 | **shipped** (`lint_binding.py`) |
-| Per-hub "current truth" reconcile | 1 | documented add-on (needs LLM) |
+| Edge-vocabulary lint (pre-commit gate) | 1 | **shipped** (`lint_edges.py`) |
+| Per-hub "current state" reconcile | 1 | documented add-on (needs LLM) |
 | Contradiction judge | 2 | documented add-on (needs LLM) |
 
 ---
@@ -75,7 +76,10 @@ cost. The binding rule injected alongside it:
 `bind_clusters.py` is the orphan finder: it identifies session clusters whose
 `_summary.md` frontmatter has no `related_to: topics/*` edge — captured but never
 filed under a hub. The queue gives the agent a concrete list to act on at session
-end: add the missing edges, or flag the cluster for manual review.
+end: add the missing edges, or flag the cluster for manual review. (The reference
+deployment's version also *suggests* candidate hubs by keyword back-reference —
+recurring tags across unbound clusters checked against existing hub names/tags —
+while the shipped one only detects orphans.)
 
 ### Binding lint
 
@@ -87,13 +91,13 @@ counts as bound" has a single source of truth.
 
 Run it after any batch write, or wire it into a pre-commit hook / CI step. The
 lint is deliberately minimal — other invariants you may want (a ≤80-word TL;DR
-cap, a `_summary.md` in every cluster, a current-truth block on every project
+cap, a `_summary.md` in every cluster, a current-state block on every project
 hub) are easy to add as extra checks but are **not** enforced by the shipped
 script today. Add them as your own conventions stabilise.
 
 ---
 
-## Documented add-on: current-truth blocks (Tier 1, semantic)
+## Documented add-on: current-state blocks (Tier 1, semantic)
 
 Not shipped — pure Python, but coupled to the hub convention described here.
 Implement it once you have a working vault with populated hubs.
@@ -103,22 +107,22 @@ Implement it once you have a working vault with populated hubs.
 Every topic hub carries a `hub_kind` field in its YAML frontmatter:
 
 ```yaml
-hub_kind: project   # active system — truth changes over time
+hub_kind: project   # active system — state changes over time
 # or
-hub_kind: reference # stable fact / external concept — no truth block needed
+hub_kind: reference # stable fact / external concept — no state block needed
 ```
 
-### Current truth block
+### Current state block
 
-Every `project` hub contains a `## Current truth (as of <DATE>)` section: a
+Every `project` hub contains a `## Current state (as of <DATE>)` section: a
 reconciled snapshot synthesising every cluster filed under the hub into a single
-authoritative statement of "what is true right now," with a `truth_reconciled`
+authoritative statement of "what is true right now," with a `state_reconciled`
 date stamp. It is **not an append — it is a rewrite** each time new clusters
 change the picture. At Tier 1 the agent regenerates only the touched hub's block,
 and the human confirms the diff before it lands.
 
-A coverage lint can enforce the invariant: `project` hub ⇒ truth block present;
-`reference` hub ⇒ truth block absent. The engine split that keeps this safe: the
+A coverage lint can enforce the invariant: `project` hub ⇒ state block present;
+`reference` hub ⇒ state block absent. The engine split that keeps this safe: the
 **LLM decides what is true; thin Python does the string-surgery** of swapping the
 block in. Never let the model free-write into the file.
 
@@ -189,13 +193,13 @@ dangerous than the drift it fixes.
 ## Wiring hygiene into your workflow
 
 **Tier 1** runs at session-end / save — fast and deterministic for the shipped
-parts, plus one gated LLM call for the truth reconcile. A reference save routine:
+parts, plus one gated LLM call for the state reconcile. A reference save routine:
 
 1. regenerate the manifest (`gen_manifest.py`),
 2. rebind orphans (`bind_clusters.py`),
 3. run the binding lint (`lint_binding.py` — fails the commit if any cluster is
    unbound),
-4. reconcile the touched hub's current truth (gated diff the human confirms),
+4. reconcile the touched hub's current state (gated diff the human confirms),
 5. commit the vault + write a session summary.
 
 In the reference rig this routine is packaged as a `/save` command, with a

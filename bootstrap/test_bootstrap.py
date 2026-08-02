@@ -37,6 +37,22 @@ def _symlinks_permitted(tmp_path) -> bool:
     return True
 
 
+def test_mappings_cover_five_runtimes(tmp_path):
+    """The plan installs all FIVE identity files, and Kimi's home-root
+    AGENTS.md is distinct from Codex's ~/.codex/AGENTS.md."""
+    actions = bootstrap.plan_actions(home=tmp_path, force=False)
+    dests = {a.dest for a in actions}
+    assert len(actions) == 5, f"expected 5 planned installs, got {len(actions)}"
+    assert tmp_path / ".claude" / "CLAUDE.md" in dests
+    assert tmp_path / ".codex" / "AGENTS.md" in dests
+    assert tmp_path / ".gemini" / "GEMINI.md" in dests
+    assert tmp_path / ".grok" / "AGENTS.md" in dests
+    # Kimi: global AGENTS.md at the HOME ROOT (Kimi walks the cwd tree).
+    assert tmp_path / "AGENTS.md" in dests
+    # All five dests are distinct paths — no mapping collides with another.
+    assert len(dests) == 5
+
+
 def test_plan_skips_existing(tmp_path):
     """When force=False and CLAUDE.md already exists, the action is marked skip."""
     (tmp_path / ".claude").mkdir()

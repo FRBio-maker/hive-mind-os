@@ -2,8 +2,13 @@
 
 > A markdown-and-config operating doctrine for running a cross-agent
 > "hive mind" — one knowledge system and one set of operating rules shared
-> across Claude Code, Codex CLI, Gemini CLI, and Grok. Not a Python project;
-> a small Python toolkit supports a system whose primary medium is text.
+> across Claude Code, Codex CLI, the Gemini-family worker (Antigravity `agy`),
+> Grok, and Kimi Code. Not a Python project; a small Python toolkit supports a
+> system whose primary medium is text.
+>
+> (Historical note, kept honest: the consumer `gemini` npm CLI shut down on
+> 2026-06-18; the reference fleet migrated to Antigravity — `agy` — running
+> the same model family, and the identity file survived the cutover intact.)
 
 **New here?** Read **[START-HERE.md](START-HERE.md)** first — what you get vs.
 what you wire, in one page.
@@ -21,6 +26,11 @@ What the system provides:
 - **One wiki, many agents.** Every runtime reads and writes the same
   Obsidian-style vault. Decisions, patterns, and research accumulate in one
   place, not scattered across per-agent scratch pads.
+- **A role-slot control plane.** CEO / orchestrator / worker are *slots* the
+  human assigns, not fixed properties of any agent. Two tiny files
+  (`roles.toml` + `mode.state`, templates in `config-templates/hivemind/`)
+  decide who is apex; three playbooks (`docs/playbooks/`) define how each
+  slot behaves; `routing.toml` picks workers within the pool.
 - **Layered memory.** Identity preferences are always loaded; the wiki manifest
   is loaded on session start; large outputs are contained in a working-memory
   sandbox. Nothing is auto-flooded into context — and layers that don't earn
@@ -38,7 +48,7 @@ What the system provides:
   requests out-of-band (phone relay) and block until answered. They never
   silently proceed with irreversible actions.
 - **Bootstrap installer.** `bootstrap/setup-macos.sh`, `setup-linux.sh`, and
-  `setup-windows.ps1` copy or symlink the four **identity files** into
+  `setup-windows.ps1` copy or symlink the five **identity files** into
   the right runtime directories in one command. It does **only** the identity
   files — merging permission excerpts and symlinking the companion tooling are
   separate steps (see ONBOARDING.md). (macOS and Linux behave the same — native
@@ -51,10 +61,13 @@ lives in plain files that any editor, diff tool, or agent can read without a
 runtime dependency. Code is only introduced when markdown is insufficient.
 
 **Cross-runtime by design.** No agent's *rules or memory* are privileged:
-Claude, Codex, Gemini, and Grok share the same wiki, the same permission
-pipeline, and the same house rules. Claude takes the orchestrator role, but
-that's a division of labor, not a privileged ruleset. Identity files differ by
-runtime; the operating doctrine does not.
+Claude, Codex, the Gemini-family worker, Grok, and Kimi share the same wiki,
+the same permission pipeline, and the same house rules. **Role is a slot, not
+an identity:** which agent orchestrates (and which holds the unsupervised CEO
+slot) is data in `roles.toml`, swappable by the human — the reference
+deployment slots Claude as orchestrator, but that's an assignment, not a
+privileged ruleset. Identity files differ by runtime; the operating doctrine
+does not.
 
 **Summary-first traversal.** The wiki graph is *walked*, not flooded. Agents
 read cluster summaries before nodes, node summaries before detail. Context
@@ -90,8 +103,9 @@ bash bootstrap/setup-linux.sh --apply      # Linux
 #    with your real agent persona.
 $EDITOR identity/CLAUDE.md
 $EDITOR identity/AGENTS.md   # Codex
-$EDITOR identity/GEMINI.md
+$EDITOR identity/GEMINI.md   # Gemini-family worker (Antigravity `agy`)
 $EDITOR identity/GROK.md
+$EDITOR identity/KIMI.md     # Kimi Code (installs to ~/AGENTS.md)
 
 # 5. Start a wiki vault
 python3 wiki-template/scripts/scaffold.py --vault ~/my-project/wiki
@@ -109,8 +123,8 @@ approval relay, and skill routing — is documented with eight Mermaid diagrams
 in [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md).
 
 Short version: each runtime directory (`~/.claude/`, `~/.codex/`, `~/.gemini/`,
-`~/.grok/`) holds a symlink to the identity file in this repo — and **that is
-all the bootstrap installs**. Permission settings are meant to be merged (not
+`~/.grok/`, plus Kimi's home-root `~/AGENTS.md`) holds a symlink to the
+identity file in this repo — and **that is all the bootstrap installs**. Permission settings are meant to be merged (not
 symlinked) so the live file can hold machine-specific keys alongside the
 versioned permission keys, but that merge is a **manual step you perform** using
 the excerpts in `permissions/` — the bootstrap does not touch settings, hooks,
@@ -128,6 +142,8 @@ files; you wire the remaining pieces once you have them.
 |---|---|
 | [ONBOARDING.md](ONBOARDING.md) | Agent-facing walkthrough — read this before acting |
 | [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Eight-diagram architecture reference |
+| [docs/playbooks/](docs/playbooks/) | The role-slot control plane + CEO / orchestrator / worker playbooks |
+| [config-templates/hivemind/](config-templates/hivemind/) | Control-plane templates — `roles.toml`, `mode.state`, `routing.toml` |
 | [docs/memory-architecture.md](docs/memory-architecture.md) | The two durable memory layers + the always-on working-memory layer, the checkpoint workflow (`/save`, `/quicksave`), and why the episodic layer was retired |
 | [docs/observability.md](docs/observability.md) | The dashboard — the OS's UI: cockpit for every layer plus the job runner, autonomous runs, checkpointing, and relay control |
 | [docs/wiki-protocol.md](docs/wiki-protocol.md) | Wiki traversal protocol — summary-first graph walk |

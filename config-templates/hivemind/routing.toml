@@ -1,0 +1,146 @@
+# routing.toml — orchestrator → worker routing table (TEMPLATE)
+# ============================================================================
+# Install at the ORCHESTRATOR runtime's config dir (reference deployment:
+# ~/.claude/routing.toml). The orchestrator's delegation skill/wrapper reads
+# this file to pick a worker for each task class.
+#
+# Each [task_class.<name>] entry has:
+#   preferred  — worker id from [roles.workers].pool in roles.toml
+#                ("codex" | "agy" | "grok" | "kimi" | "claude"), or "self"
+#   model      — model id passed to that worker's CLI (placeholders below —
+#                fill in whatever your CLIs currently default to)
+#   reason     — one-line WHY (cite a benchmark, capability, or verified run)
+#   updated    — date this entry was last reviewed
+#
+# roles.toml is UPSTREAM of this file: it sets the worker pool and who
+# orchestrates; this table picks WITHIN the pool. Edit this file as model
+# rankings shift — it is a snapshot, not a law.
+# ============================================================================
+
+[meta]
+# Bump this when the table is reviewed end-to-end.
+last_full_review = "<YYYY-MM-DD>"
+notes = """
+Stale-by date convention: any entry older than 60 days is suspect.
+Vendors ship coding-model updates roughly monthly, so re-review on a
+schedule rather than trusting old rankings.
+"""
+
+# ---------------------------------------------------------------------------
+# Always-self: never delegate. These are the orchestrator's job.
+# ---------------------------------------------------------------------------
+
+[task_class.architecture_decision]
+preferred = "self"
+model     = "<orchestrator-model>"
+reason    = "Judgment, alternatives-weighing, product calls — never delegate."
+updated   = "<YYYY-MM-DD>"
+
+[task_class.orchestration]
+preferred = "self"
+model     = "<orchestrator-model>"
+reason    = "Task decomposition and routing itself stays with the orchestrator."
+updated   = "<YYYY-MM-DD>"
+
+# ---------------------------------------------------------------------------
+# Codex CLI — terminal-agentic and tight-diff work.
+# ---------------------------------------------------------------------------
+
+[task_class.terminal_agentic_grind]
+preferred = "codex"
+model     = "<codex-default-model>"
+reason    = "Long unattended multi-file grinds (TDD refactors, plan execution) with disciplined scope."
+updated   = "<YYYY-MM-DD>"
+
+[task_class.surgical_code_edit]
+preferred = "codex"
+model     = "<codex-default-model>"
+reason    = "Disciplined scoped diffs in known files."
+updated   = "<YYYY-MM-DD>"
+
+# ---------------------------------------------------------------------------
+# Gemini family — worker is Antigravity (`agy`), which runs the Gemini
+# models. The consumer `gemini` npm CLI shut down 2026-06-18; the identity
+# file survived the cutover because the roster lives HERE, as data, not in
+# the doctrine (see docs/multi-runtime.md, "Runtimes die; identity files
+# don't"). model = the Gemini model agy runs.
+# ---------------------------------------------------------------------------
+
+[task_class.expert_consult]
+preferred = "agy"
+model     = "<gemini-pro-tier-model>"
+reason    = "Long-context expert opinion / design critique (answer-only mode)."
+updated   = "<YYYY-MM-DD>"
+
+[task_class.cross_file_feature]
+preferred = "agy"
+model     = "<gemini-pro-tier-model>"
+reason    = "End-to-end feature touching 3+ files (edit mode; always review the diff after)."
+updated   = "<YYYY-MM-DD>"
+
+[task_class.long_context_grind]
+preferred = "agy"
+model     = "<gemini-pro-tier-model>"
+reason    = "Read-heavy long-context ANSWER work (summarize a codebase, audit drift)."
+updated   = "<YYYY-MM-DD>"
+
+[task_class.cheap_cleanup]
+preferred = "agy"
+model     = "<gemini-flash-tier-model>"
+reason    = "Formatting, lint, docstrings (edit mode). Low-judgment volume work goes to the cheap/fast tier; if a cleanup needs real reasoning, promote it to a pro-tier lane instead."
+updated   = "<YYYY-MM-DD>"
+
+[task_class.frontend_ui]
+preferred = "agy"
+model     = "<gemini-pro-tier-model>"
+reason    = "Evidence-based lane: in the reference fleet a delegated attempt out-designed the orchestrator's inline attempt, so ALL frontend design routes here. Update with your own evidence."
+updated   = "<YYYY-MM-DD>"
+
+# ---------------------------------------------------------------------------
+# Grok CLI — live web research and best-of-N parallel attempts. Built-in
+# web search is its edge over the other workers.
+# ---------------------------------------------------------------------------
+
+[task_class.web_research]
+preferred = "grok"
+model     = "<grok-default-model>"
+reason    = "Built-in live web search + current-information lookups — the distinct edge for time-sensitive research."
+updated   = "<YYYY-MM-DD>"
+
+[task_class.best_of_n_parallel]
+preferred = "grok"
+model     = "<grok-default-model>"
+reason    = "Runs a task N ways in parallel and picks the best (headless). Good for explore-many-paths grinds."
+updated   = "<YYYY-MM-DD>"
+
+# ---------------------------------------------------------------------------
+# Kimi Code CLI — orchestrator-peer generalist from a second vendor family.
+# ---------------------------------------------------------------------------
+
+[task_class.generalist_feature_work]
+preferred = "kimi"
+model     = "<kimi-default-model>"
+reason    = "Strong generalist with large context and native subagents — a vendor family outside the main rotation, for full-stack feature work and second opinions."
+updated   = "<YYYY-MM-DD>"
+
+# ---------------------------------------------------------------------------
+# Claude (in-runtime subagent). Use the runtime's own subagent mechanism,
+# not the external-delegate wrappers, for these.
+# ---------------------------------------------------------------------------
+
+[task_class.balanced_implementation]
+preferred = "claude"
+model     = "<mid-tier-claude-model>"
+reason    = "Default in-runtime subagent worker — strong implementation quality at a fraction of the flagship cost."
+updated   = "<YYYY-MM-DD>"
+
+# ---------------------------------------------------------------------------
+# Second-opinion review — deliberately pick a DIFFERENT family than the
+# implementer. Caller passes implementer_family; router returns a
+# non-matching reviewer.
+# ---------------------------------------------------------------------------
+
+[task_class.second_opinion_review]
+preferred = "router_chooses_different_family"
+reason    = "Diversity beats raw capability for second opinions. Router picks a worker from a different vendor family than the implementer. A critique is answer-only work, so answer-mode workers fit this lane well."
+updated   = "<YYYY-MM-DD>"

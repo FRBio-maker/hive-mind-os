@@ -19,7 +19,9 @@ joining and how to behave once you are in.
 ## §0 — What you are joining
 
 This machine runs a small fleet of AI coding agents (today: Claude Code, Codex
-CLI, Gemini CLI, Grok CLI) across one or more operating systems. They are not independent.
+CLI, the Gemini-family worker — Antigravity `agy`, which replaced the consumer
+`gemini` npm CLI when it shut down 2026-06-18, same model family — Grok CLI,
+and Kimi Code CLI) across one or more operating systems. They are not independent.
 They share one set of **rules**, one set of **executables**, one **knowledge
 base**, and one **human-in-the-loop channel** — each versioned in its own
 repository and symlinked into every runtime so behaviour stays consistent no
@@ -32,7 +34,7 @@ logical machine** when both are in play.
 
 | Repo | Role | What it holds |
 |---|---|---|
-| **hive-mind-os** (this repo) | **RULES** | Identity files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `GROK.md`), permission excerpts, and the protocol docs in `docs/`. This is the source of truth for *how every agent behaves at session start*. |
+| **hive-mind-os** (this repo) | **RULES** | Identity files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `GROK.md`, `KIMI.md`), permission excerpts, the role-slot control-plane templates (`config-templates/hivemind/`), the role playbooks (`docs/playbooks/`), and the protocol docs in `docs/`. This is the source of truth for *how every agent behaves at session start*. |
 | **Tooling repo** | **EXECUTABLES** | Session hooks, helper binaries, `routing.toml` (delegation rules), and skills shared across agents. This is *code* — it has tests. Lives in a separate companion repository, not shipped inside this repo. |
 | **Knowledge-graph repo** | **KNOWLEDGE** | The curated wiki vault at `<vault>/` — typed knowledge nodes, topic hubs, clusters, and `SCHEMA.md`. Curated, walkable, no execution. This repo ships a starter template under `wiki-template/`. |
 | **approval-relay** | **HUMAN-IN-THE-LOOP** | A daemon + per-agent adapters that let any agent ask the human for approval or a decision (e.g. over Telegram), and block until they answer. **Not included in this template — bring or build your own.** The relay pattern is documented in `docs/human-in-the-loop.md`. |
@@ -94,14 +96,22 @@ you plug into rather than build yourself:
 - **The job runner** — a jobs board for overnight/scheduled work. Arming a job
   requires explicit human confirmation *and* a passing dry-run of the real
   command; job LLM calls route to the executor tier, not to you.
-- **Autonomous-run orchestration** — the overnight "lone wolf" pattern: a CEO
-  session spawns scoped orchestrators that dispatch workers per the routing
-  table, with review gates per work package, an isolated branch that is never
-  auto-merged, and a morning report.
+- **Autonomous-run orchestration** — the overnight "lone wolf" pattern: the
+  CEO-slot agent (per `roles.toml`, with `mode.state` flipped to `away`)
+  spawns scoped orchestrators that dispatch workers per the routing table,
+  with review gates per work package, an isolated branch that is never
+  auto-merged, and a morning report. Rails and the mode.state handback:
+  `docs/playbooks/CEO-PLAYBOOK.md`.
 - **Session checkpointing** — the `/save` / `/quicksave` verbs above. Every
   agent checkpoints the same way into the same vault.
-- **Relay presence control** — the away-mode toggle that decides whether
-  approvals route to the phone or the terminal.
+- **Relay presence control** — the relay presence (AFK) toggle that decides
+  whether approvals route to the phone or the terminal.
+
+> ⚠️ **Two different "away"s.** The relay presence (AFK) toggle above only
+> changes *where approval prompts appear* (phone vs terminal). It is **not**
+> the hivemind `mode.state = away`, which hands the apex to the CEO agent for
+> unsupervised operation (see "Who orchestrates whom" below and
+> `docs/playbooks/README.md`). Don't conflate them.
 
 You join this layer by **adding a collector** — one small module that reports
 your runtime's state to the dashboard — not by building your own UI or your
@@ -114,21 +124,44 @@ the keyboard, you do not guess and you do not stall. You send the request
 through the **approval relay** and block until they answer from their phone (or
 another out-of-band channel). Deeper map: `docs/permissions-protocol.md`.
 
-### Who orchestrates whom
+### Who orchestrates whom — role is a slot, not an identity
 
-Claude Code is the **orchestrator** — it holds the plan and delegates
-scoped tasks to specialists. Codex CLI, the Gemini-family worker, and Grok CLI
-are **specialists** — Codex for terminal-agentic grinds and surgical edits,
-Gemini for large-context cross-file work and frontend/UI design, Grok for live
-web research and best-of-N parallel attempts. Routing lives in
-`<tooling-repo>/routing.toml` — **that file is the source of truth for the
-roster, not this paragraph** (worker CLIs get replaced; see
-`docs/multi-runtime.md`) — dispatched via the `delegate-external` skill.
+Nobody in the fleet is "the orchestrator" by nature. **CEO, orchestrator, and
+worker are slots** the human assigns through the role-slot control plane —
+two tiny files (templates in `config-templates/hivemind/`, full doctrine in
+`docs/playbooks/README.md`):
 
-**Figure out where you fit:** if you are a strong generalist planner, you may
-act as an orchestrator peer. If you are best at a narrow task class, you are a
-specialist and should expect to receive delegated, scoped work. State which you
-think you are when you report back to the human (§5).
+- **`roles.toml`** — which agent holds the CEO slot, which holds the
+  orchestrator slot, and the worker pool. Note `flash` — the executor tier
+  (`docs/executor-tier.md`) — is a first-class member of the worker pool.
+- **`mode.state`** — one word. `present` → the orchestrator agent is apex
+  with the human in the loop; `away` → the CEO agent is apex, unsupervised
+  (see `docs/playbooks/CEO-PLAYBOOK.md` for its safety rails). An apex agent
+  in the wrong mode is just a worker.
+
+You resolve your role at session start: obey an injected "YOUR CURRENT ROLE"
+banner if a session-start hook provided one (the banner outranks
+self-resolution); otherwise read `roles.toml` × `mode.state` yourself, then
+load the matching playbook in `docs/playbooks/`. The reference resolver
+**never raises** — malformed or missing config degrades to the safe default
+(orchestrator = `claude`, everyone else = worker, mode = `present`), never to
+"nobody can start a session".
+
+**Precedence — dispatched with a scoped task ⇒ you are a `worker`. Full
+stop.** Never self-resolve from `roles.toml` when another agent dispatched
+you: that file records which agent *holds* a role, not what *this process* is.
+
+Task routing sits downstream: **`roles.toml` sets the pool and who
+orchestrates; `routing.toml` picks within the pool.** `routing.toml` installs
+at the orchestrator runtime's config dir (reference deployment:
+`~/.claude/routing.toml`; template at `config-templates/hivemind/routing.toml`)
+— **that file is the source of truth for the roster, not this paragraph**
+(worker CLIs get replaced; see `docs/multi-runtime.md`) — dispatched via the
+orchestrator's delegation skill.
+
+**Figure out where you fit:** state, when you report back to the human (§5),
+which slot you believe you currently hold per `roles.toml` — and remember it
+can be reassigned tomorrow.
 
 The full architecture map with diagrams is `docs/INFRASTRUCTURE.md` — read it
 if you want the complete picture before wiring in.
@@ -139,9 +172,10 @@ if you want the complete picture before wiring in.
 
 Pick the one that matches you:
 
-- **You are Claude Code, Codex CLI, Gemini CLI, or Grok CLI**, just on a machine
-  that is not wired up yet → **§2 (Known runtime)**. There is already a canonical
-  identity file for you in this repo and a script that links it in.
+- **You are Claude Code, Codex CLI, a Gemini-family worker (Antigravity
+  `agy`), Grok CLI, or Kimi Code CLI**, just on a machine that is not wired up
+  yet → **§2 (Known runtime)**. There is already a canonical identity file for
+  you in this repo and a script that links it in.
 - **You are a different runtime** (e.g. Cursor, GitHub Copilot CLI, Aider, or a
   custom agent) with no identity file here yet → **§3 (New runtime)**. You will
   create your own canonical files and wire in from first principles.
@@ -153,7 +187,7 @@ Pick the one that matches you:
 
 ---
 
-## §2 — Known runtime (Claude / Codex / Gemini / Grok)
+## §2 — Known runtime (Claude / Codex / Gemini-family / Grok / Kimi)
 
 A canonical identity file already exists for you. Linking it in is two steps.
 
@@ -162,7 +196,7 @@ A canonical identity file already exists for you. Linking it in is two steps.
 cd <your-home>
 git clone git@github.com:<your-username>/hive-mind-os.git   # skip if present
 
-# 2. Run the bootstrap for your OS. It installs the FOUR IDENTITY FILES ONLY —
+# 2. Run the bootstrap for your OS. It installs the FIVE IDENTITY FILES ONLY —
 #    it does NOT merge permissions, wire settings, or symlink hooks (those are
 #    separate steps, below and in docs/permissions-protocol.md). With --force it
 #    BACKS UP each existing identity file (to <file>.bak.<timestamp>) before
@@ -250,9 +284,11 @@ best-effort and degrades gracefully. Determine:
 - **Human-in-the-loop:** add an approval-relay adapter for your runtime if it
   supports hooks. If not, at minimum *know that the relay exists* and ask the
   human to relay for you when you're blocked.
-- **Delegation:** if you are a specialist, add yourself to
-  `<tooling-repo>/routing.toml` so the orchestrator can route work to you. If you
-  are an orchestrator peer, learn to read it.
+- **Delegation:** join the worker pool in `roles.toml`, and add yourself to
+  `routing.toml` (at the orchestrator runtime's config dir — reference:
+  `~/.claude/routing.toml`; template: `config-templates/hivemind/routing.toml`)
+  so the orchestrator can route work to you. If you may hold an apex slot,
+  learn to read both files and the playbooks in `docs/playbooks/`.
 
 **Step 5 — Wire the permission pipeline.** Every fleet member's tool calls pass
 an allow / ask / deny resolver, and yours must match the fleet's model
@@ -327,8 +363,9 @@ Report these back to the human so they can confirm you're wired in correctly:
       symlinked + added to bootstrap, for a new runtime), and you said which.
 - [ ] You can read `<vault>/MANIFEST.md` and know to walk it before answering.
 - [ ] You know how to reach the human through the relay when blocked.
-- [ ] You have declared whether you are acting as an **orchestrator peer** or a
-      **specialist**, and why.
+- [ ] You have declared which **role slot** you currently resolve to (CEO /
+      orchestrator / worker, per `roles.toml` × `mode.state`), and why — and
+      you know that a dispatched, scoped task makes you a worker regardless.
 - [ ] Any capability you *cannot* support (e.g. no session hooks → no
       auto-quicksave) is written down and reported, not silently skipped.
 

@@ -61,13 +61,26 @@ promise of cheap scanning breaks. Lint enforces the cap.
 
 Edges between nodes carry three pieces of information:
 
-- **Type** — the semantic relationship (e.g. `supports`, `contradicts`,
+- **Type** — the semantic relationship: `supports`, `contradicts`,
   `depends_on`, `derived_from`, `related_to`, `part_of`, `preceded_by`,
-  `followed_by`, `authored_by`). Nine types are defined in `<vault>/SCHEMA.md §5`.
+  `followed_by`, `authored_by`. These nine, defined in `<vault>/SCHEMA.md §5`,
+  are a **CLOSED set** — do not invent relationship names. The pre-commit
+  guard `scripts/lint_edges.py` rejects anything else and blocks the commit.
 - **Weight** (0.0–1.0) — how strong the relationship is. Drives traversal
   priority: when budget is tight, walk higher-weight edges first.
 - **Direction** — most edges are directed (A → B). Bidirectional edges
   (`contradicts`, `related_to`) are written once and mirrored by lint.
+
+When an off-schema name feels tempting, map it onto the closed set:
+
+| Tempting off-schema rel | Use instead |
+|---|---|
+| `continues`, `follows` | `preceded_by` |
+| `precedes` | `followed_by` |
+| `contains`, `has_part` | flip to `part_of` on the member node |
+| `uses` | `depends_on` |
+| `extends`, `refines`, `caused_by` | `derived_from` |
+| `validates`, `resolves` | `supports` |
 
 Edge data lives in two places, kept in sync:
 - **Frontmatter `edges:`** — canonical, machine-parseable.
@@ -83,8 +96,11 @@ Every agent work session that edits tracked files produces a **session cluster**
 
 **Opening a cluster (Doer mode):**
 Any task that edits a file in the wiki vault, a tracked project repo, or a
-durable global agent asset (identity files, hooks, skills, relay tooling) MUST
-open a session cluster. No agent discretion.
+durable global agent asset (see the enumerated list in `<vault>/SCHEMA.md §9`,
+*Global agent assets extension* — per-runtime identity files, settings, hooks,
+skills, plugins, and shared agent infrastructure) MUST open a session cluster.
+No agent discretion. **The trigger is the file edit, not your sense of
+importance. If files will change, the cluster opens.**
 
 - Create `nodes/<YYYY-MM-DD>-<slug>/_summary.md` with `status: draft` and
   TL;DR: "in progress".
@@ -116,9 +132,10 @@ only** (`gen_manifest.py` builds it from hubs; cluster summaries are reached by
 descending from a hub, not listed here). This is injected automatically if
 session hooks are wired; otherwise the agent reads it manually.
 
-On every user message, before answering, the agent asks: *"could any hub's
-accumulated decisions, patterns, or edge cases sharpen my answer?"* If yes —
-that is a manifest hit — the agent reads those hub TL;DRs before answering.
+On every user message — before answering, before any other tool use — the
+agent asks: *"could any hub's accumulated decisions, patterns, or edge cases
+sharpen my answer?"* If yes — that is a manifest hit — the agent reads those
+hub TL;DRs before answering.
 
 The agent announces one of:
 - *"Manifest hit: [topics/X], [topics/Y] — reading TL;DRs."* Then reads those
@@ -129,6 +146,40 @@ The agent announces one of:
 The announcement is the rule. Silent intuition is not compliance. "No hit" is
 reserved for prompts clearly outside the vault's scope (shell tasks, generic
 syntax, meta questions about the agent itself).
+
+Three walk-discipline rules keep the hit test honest:
+
+- **Don't filter by whether you think you already know the answer** — the hub
+  may surprise you. The test is topical relevance, not perceived need.
+- **When in doubt, walk.** Reading a TL;DR is ~30 lines and cheap; the cost of
+  answering without accumulated context is silent drift you won't notice.
+- **Having the protocol text in context does NOT substitute for the hub.** The
+  protocol is the rule; the hub holds the decisions and patterns that refine
+  how to apply it. Walk anyway.
+
+---
+
+## Project hubs load their specs and plans
+
+Some hubs track active projects with formal spec and plan documents living in
+the project's own repo. A **project registry** JSON maps each such hub to its
+repo plus `specs_glob` / `plans_glob` patterns (in the reference deployment
+this is a fleet-dashboard `projects.json`; **no registry template ships with
+this repo yet** — the contract below is what you wire).
+
+When a manifest hit lands on a registered project hub:
+
+1. **Always read the cheap index first** — `title · date · relpath` for every
+   matching spec/plan, newest-first.
+2. **Select by relevance, not recency:** read in full the spec(s)/plan(s)
+   whose *titles* match the subsystem the task names — specs are partitioned
+   by subsystem.
+3. **No subsystem named** → default to the newest spec + newest plan, and
+   surface the rest of the index so the user can redirect.
+4. Announce, e.g.: *"… (project) — index N specs / M plans, reading `<spec>` +
+   `<plan>`."*
+5. **Skip SILENTLY** if the registry is missing, the entry has no globs, or
+   nothing matches — a project hit must never break the manifest walk.
 
 ---
 

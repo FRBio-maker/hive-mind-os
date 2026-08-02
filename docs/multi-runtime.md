@@ -1,11 +1,11 @@
 # Multi-Runtime Parity
 
-How one doctrine drives four agent runtimes from a single set of principles.
+How one doctrine drives five agent runtimes from a single set of principles.
 
 The Wiki Protocol, memory rules, permissions logic, and hygiene conventions are
 runtime-agnostic. But each runtime reads its configuration from a different file
 format and path. This document covers how to replicate the shared doctrine across
-all four, and where the runtimes diverge.
+all of them, and where the runtimes diverge.
 
 ---
 
@@ -15,8 +15,9 @@ all four, and where the runtimes diverge.
 |---|---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/settings.json` | JSON |
 | Codex CLI | `~/.codex/AGENTS.md` | `~/.codex/config.toml` | TOML |
-| Gemini family (CLI or Antigravity) | `~/.gemini/GEMINI.md` | `~/.gemini/settings.json` | JSON |
-| Grok | *(reads `AGENTS.md`)* | — | — |
+| Gemini-family worker (Antigravity `agy`) | `~/.gemini/GEMINI.md` | `~/.gemini/settings.json` | JSON |
+| Grok | `~/.grok/AGENTS.md` *(Grok reads `AGENTS.md`)* | — | — |
+| Kimi Code CLI | `~/AGENTS.md` *(home root; Kimi walks the cwd tree)* | `~/.kimi-code/config.toml` | TOML |
 
 Each runtime's identity file is the equivalent of this repo's `ONBOARDING.md`
 plus the shared protocol text — translated into whatever that runtime expects.
@@ -34,9 +35,11 @@ rebuild, because of two properties worth preserving:
   driving the same model family) replaced the dead CLI, the same identity file
   was re-pointed and the worker rejoined the fleet with its conventions intact.
 - **The worker roster is data, not doctrine.** Which task class routes to which
-  worker lives in `routing.toml` (the tooling repo), not hardcoded in identity
-  files or docs. Swapping a runtime is a routing-table edit plus a dispatch
-  wrapper, not a doctrine rewrite.
+  worker lives in `routing.toml` (at the orchestrator runtime's config dir —
+  reference: `~/.claude/routing.toml`; template:
+  `config-templates/hivemind/routing.toml`), not hardcoded in identity files or
+  docs. Swapping a runtime is a routing-table edit plus a dispatch wrapper, not
+  a doctrine rewrite.
 
 Design your fleet assuming any single vendor CLI can be revoked, repriced, or
 retired — because eventually one will be.
@@ -60,8 +63,8 @@ is no central file that all runtimes import at runtime; each keeps its own.
   dependency on the others being present.
 
 **The cost:** when you update a shared rule (e.g. the Wiki Protocol gains a new
-walk constraint), you must update it in all four identity files. A simple diff
-or grep across the four files catches drift. For a small number of runtimes this
+walk constraint), you must update it in all five identity files. A simple diff
+or grep across the files catches drift. For a small number of runtimes this
 is tolerable; at larger scale, a fan-out generation step becomes worthwhile.
 
 ---
@@ -121,7 +124,7 @@ Rewrite to avoid the subexpression when possible:
 git rev-parse HEAD
 ```
 
-This applies to all four runtimes to varying degrees, but is most consistently
+This applies to all runtimes to varying degrees, but is most consistently
 enforced in Codex CLI. When debugging unexpected permission prompts, check
 for `$()` in the flagged command first.
 
@@ -129,30 +132,60 @@ for `$()` in the flagged command first.
 
 ## Routing between runtimes
 
-The doctrine does not require all four runtimes to be active simultaneously.
+The doctrine does not require all runtimes to be active simultaneously.
 A minimal setup runs Claude Code only and ignores the rest. The value of
 multi-runtime parity is that you can route tasks to the best-fit runtime without
-retraining each one on your conventions:
+retraining each one on your conventions.
+
+Routing is by **task class**. The table lives in `routing.toml` — installed at
+the orchestrator runtime's config dir (reference deployment:
+`~/.claude/routing.toml`); the template ships at
+`config-templates/hivemind/routing.toml`. Upstream of it, `roles.toml` sets
+the worker pool and who orchestrates; `routing.toml` picks *within* the pool
+(`docs/playbooks/README.md`). The template's taxonomy:
+
+| Task class | Lane (template default) | What it covers |
+|---|---|---|
+| `architecture_decision` | **self — never delegated** | Judgment, alternatives-weighing, product calls |
+| `orchestration` | **self — never delegated** | Task decomposition and routing itself |
+| `terminal_agentic_grind` | codex | Long unattended multi-file grinds (TDD refactors, plan execution) |
+| `surgical_code_edit` | codex | Disciplined scoped diffs in known files |
+| `expert_consult` | agy | Long-context expert opinion / design critique (answer-only) |
+| `cross_file_feature` | agy | End-to-end feature touching 3+ files (edit mode; review the diff) |
+| `long_context_grind` | agy | Read-heavy long-context answer work (summarize, audit drift) |
+| `cheap_cleanup` | agy (flash-tier model) | Formatting, lint, docstrings — low-judgment volume |
+| `frontend_ui` | agy | Frontend/UI design (an evidence-based lane — see telemetry below) |
+| `web_research` | grok | Live web search, current-information lookups |
+| `best_of_n_parallel` | grok | Run a task N ways in parallel, keep the best |
+| `generalist_feature_work` | kimi | Full-stack feature work from a second vendor family |
+| `balanced_implementation` | claude (in-runtime subagent) | Solid implementation at sub-flagship cost |
+| `second_opinion_review` | `router_chooses_different_family` | Reviewer must come from a different vendor family than the implementer |
+
+**The never-delegate rule:** classes routed `preferred = "self"` —
+`architecture_decision` and `orchestration` — stay with the orchestrator, always.
+Judgment the human has to live with, and the routing of work itself, are never
+handed to a worker.
+
+As per-runtime commentary (illustrative, not the source of truth — worker CLIs
+get replaced, as the Gemini cutover above proved):
 
 - **Claude Code** — judgment-heavy tasks, orchestration, wiki maintenance,
   anything requiring nuanced planning.
 - **Codex CLI** — terminal-agentic grinds, surgical edits, iteration-speed
   tasks inside a single repo.
-- **Gemini-family worker** — large-context cross-file work where holding the
-  whole codebase in view at once matters, and frontend/UI design (a routing
-  rule the reference fleet learned from evidence, not assumption — see the
-  telemetry section below).
+- **Gemini-family worker (Antigravity `agy`)** — large-context cross-file work
+  where holding the whole codebase in view at once matters, and frontend/UI
+  design (a routing rule the reference fleet learned from evidence, not
+  assumption — see the telemetry section below).
 - **Grok** — live web research and current-information lookups (its built-in
-  web search is a real edge over the other three), plus best-of-N parallel
+  web search is a real edge over the other workers), plus best-of-N parallel
   attempts where trying a problem several ways beats one careful pass.
+- **Kimi Code CLI** — an orchestrator-peer generalist from a second vendor
+  family; useful precisely because it sits outside the main vendor rotation.
 
-These rules of thumb are the *starting* table. The live table is
-`routing.toml` in your tooling repo — update it as evidence accumulates, and
-treat this doc's list as illustrative.
-
-When all four share the same protocol text, a task handed from one to another
-does not require a re-briefing. The receiving runtime already knows the wiki
-conventions, memory rules, and escalation paths.
+When all runtimes share the same protocol text, a task handed from one to
+another does not require a re-briefing. The receiving runtime already knows the
+wiki conventions, memory rules, and escalation paths.
 
 ---
 

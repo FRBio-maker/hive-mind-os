@@ -81,6 +81,16 @@ Some operations are blocked unconditionally, with no relay escalation:
 Hard denies are silent — the agent is blocked but no relay notification fires.
 This prevents the phone from buzzing on clearly-off-limits operations.
 
+**Reference deployment status:** the deny set above is the recommended canon,
+but the reference deployment currently carries only a *subset* of it live —
+the `rm -rf` variants and credential-file reads. The fuller set (raw-disk
+`dd`, `gh auth token`, force-push-to-main, `--no-verify` commits) is doctrine
+to restore, not deployed reality. Published canon and any live deployment
+*will* drift apart over time; the honest fix is a verify/drift-audit script
+that diffs each excerpt in `permissions/` against the live config and reports
+mismatches. That script is not yet built — until it exists, assume drift and
+audit by hand.
+
 ## defaultMode=auto — the classifier idea
 
 The `defaultMode` setting controls what happens to tool calls that don't match
@@ -133,7 +143,15 @@ or defaulting to allow. Note there is **no fallback *messaging* channel** — th
 terminal fallback only helps if a human is actually at the terminal. A
 truly-AFK agent whose relay is down will block until the timeout, then DENY.
 
-## Agents must not self-modify the permission surface
+One more failure mode for relay implementers: your poller needs **backoff on
+permanently-unrecoverable auth errors** (e.g. an HTTP 401 on a `getUpdates`
+long-poll after a token rotation). A poller that retries a dead credential at
+full speed floods the system journal with an identical error line every few
+seconds — drowning out real signals — while never recovering. Detect the
+unrecoverable class, back off hard, and alarm once through an independent
+channel.
+
+## Agents must not self-modify the permission surface (recommended control)
 
 An agent must not edit its own permission settings files, hooks, or relay
 adapter config without explicit human authorization. Doing so would allow an
@@ -141,9 +159,35 @@ agent to grant itself expanded permissions — violating the human-in-the-loop
 guarantee. The permission surface is the human's to control; the agent's job
 is to operate within it.
 
-Any edit to `~/.claude/settings.json` (permissions block), `~/.codex/config.toml`
-(approval policy), `~/.gemini/policies/`, or relay adapter config files is an
-ASK-class operation — it escalates to the human.
+**Reference deployment status: not yet enforced.** The reference deployment
+does not currently carry ask rules covering its own permission surface — an
+agent there *could* edit its settings without an escalation firing. This is
+doctrine, not deployed reality; treat the rules below as the recommended
+control an adopter should add, not a description of what ships live.
+
+Concrete ask rules to add (Claude syntax; mirror into each runtime you run):
+
+```json
+"ask": [
+  "Edit(~/.claude/settings.json)",
+  "Write(~/.claude/settings.json)",
+  "Edit(~/.claude/hooks/**)",
+  "Write(~/.claude/hooks/**)",
+  "Edit(~/.codex/config.toml)",
+  "Write(~/.codex/config.toml)",
+  "Edit(~/.gemini/policies/**)",
+  "Write(~/.gemini/policies/**)",
+  "Edit(<your-relay-adapter-config-dir>/**)",
+  "Write(<your-relay-adapter-config-dir>/**)"
+]
+```
+
+**The compounding trap:** these rules are defeated if the agent also holds
+runtime blanket trust over the directory containing them — e.g. a broad
+`Edit(~/.claude/**)` allow rule, or a Codex/Grok `trust_level = "trusted"`
+block covering `$HOME`. A trust grant over the directory that holds the
+permission files *is* a grant to rewrite the permission files. Keep trust
+scoped to project directories that do not contain the permission surface.
 
 ## Shell subexpression caveat
 
@@ -164,10 +208,15 @@ If your relay adapter (or any custom rule layer) matches rules against the
 (absolute-path shells escape name-based matching), prefix launchers
 (`sudo`/`env`/`nohup`/`setsid <risky>` — including a launcher wrapping a
 non-shell command directly), and command substitution (`$(<risky>)`,
-`` `<risky>` ``). The reference implementation closed each of these
-individually, found late, after review — treat this list as the *starting*
-test suite for your own adapter, and make unrecognized wrapper forms
-**fail to ASK**, never to allow.
+`` `<risky>` ``). One residual is **known open** in the reference
+implementation's published test suite: combined short flags — e.g.
+`bash -xc '<risky>'` — escape exact-match detection of the inline-command
+flag (`-c`), because the parser looks for the literal `-c` token and `-xc`
+is a different string. Include combined-flag forms in your tests. The
+reference implementation closed each of the others individually, found
+late, after review — treat this list as the *starting* test suite for your
+own adapter, and make unrecognized wrapper forms **fail to ASK**, never to
+allow.
 
 Be honest about the ceiling: a static command parser stops accidents and naive
 injection, not a determined adversary — there are always more encodings. The
@@ -182,7 +231,17 @@ hard floor underneath it is the runtime's own gates plus OS-level separation
 - Hook: `PreToolUse` in `~/.claude/settings.json`.
 - Permission rules: `permissions.{allow,ask,deny,defaultMode}` block.
 - Hook payload: JSON on stdin with `tool_name`, `tool_input`, `cwd`.
-- Adapter response: exit 0 (allow), exit 2 (deny).
+- Adapter response: exit 0 (allow), exit 2 (deny) — **and a third meaning of
+  exit 2** when the hook intercepts `AskUserQuestion`. A `PreToolUse` hook
+  cannot substitute a tool *result*, so there is no way to "answer" the
+  question tool directly. The adapter instead exits 2 (block the tool) with
+  the human's answers written to **stderr**, formatted as an instruction to
+  the model: *use these answers verbatim and do NOT retry the question tool.*
+  The block-with-payload IS the answer-injection channel. This is the
+  hardest-to-rediscover part of the interface contract — an adapter that
+  exits 2 with a bare "denied" message on a question makes the agent re-ask
+  in a loop; an adapter that exits 0 lets the native picker fire and the
+  phone answer is lost. (Full flow in `docs/human-in-the-loop.md`.)
 - **Important:** `PreToolUse` fires on every matched tool call regardless of
   permission state. The relay adapter must mirror the `ask`/`deny` rules
   itself and short-circuit non-matching calls — otherwise the phone buzzes on
