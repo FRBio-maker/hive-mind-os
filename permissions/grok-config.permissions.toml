@@ -3,9 +3,10 @@
 # INHERITANCE CAVEAT: in Claude-compat mode Grok inherits whatever the LIVE
 # Claude settings file actually contains — not what this repo publishes. If
 # your deployment's Claude deny set is a thin subset of the canon in
-# claude-settings.permissions.json (the reference deployment's currently is
-# — see ../permissions/README.md "Drift is expected"), then Grok's deny set
-# is exactly as thin. The published canon only protects you if applied.
+# claude-settings.permissions.json (the reference deployment's was, until a
+# 2026-08 audit caught it — see ../permissions/README.md "Drift is
+# expected"), then Grok's deny set is exactly as thin. The published canon
+# only protects you if applied.
 #
 # Grok (xAI CLI) brings itself into the shared Deny/Ask/Auto model in two parts:
 #

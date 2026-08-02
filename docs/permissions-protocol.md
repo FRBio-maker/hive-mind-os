@@ -81,15 +81,14 @@ Some operations are blocked unconditionally, with no relay escalation:
 Hard denies are silent — the agent is blocked but no relay notification fires.
 This prevents the phone from buzzing on clearly-off-limits operations.
 
-**Reference deployment status:** the deny set above is the recommended canon,
-but the reference deployment currently carries only a *subset* of it live —
-the `rm -rf` variants and credential-file reads. The fuller set (raw-disk
-`dd`, `gh auth token`, force-push-to-main, `--no-verify` commits) is doctrine
-to restore, not deployed reality. Published canon and any live deployment
-*will* drift apart over time; the honest fix is a verify/drift-audit script
-that diffs each excerpt in `permissions/` against the live config and reports
-mismatches. That script is not yet built — until it exists, assume drift and
-audit by hand.
+**Reference deployment status:** the deny set above is the recommended canon
+and, as of 2026-08-02, the reference deployment carries it in full (restored
+the same day an audit caught the live config lagging — for a while only the
+`rm -rf` variants and credential-file reads were live). The episode is the
+lesson: published canon and any live deployment *will* drift apart over time;
+the honest fix is a verify/drift-audit script that diffs each excerpt in
+`permissions/` against the live config and reports mismatches. That script is
+not yet built — until it exists, assume drift and audit by hand.
 
 ## defaultMode=auto — the classifier idea
 

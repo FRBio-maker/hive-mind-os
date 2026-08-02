@@ -41,12 +41,13 @@ into the other pattern-based files.
 **Drift is expected, not hypothetical.** Without a verify script diffing
 each excerpt against the live config, published canon and any live
 deployment *will* diverge — a 2026-08 audit of the reference deployment
-found exactly that: the live Claude deny list carried only a subset of the
-canon here (`rm -rf` variants + credential-file reads), with the fuller set
-(raw-disk `dd`, `gh auth token`, force-push-to-main, `--no-verify`) being
-doctrine-to-restore rather than deployed reality. The deny set in these
-files remains the canon; assume any live deployment lags it until a
-`verify.sh` exists (not built yet) or you've diffed by hand.
+found exactly that: the live Claude deny list had silently shrunk to a
+subset of the canon here (`rm -rf` variants + credential-file reads),
+dropping raw-disk `dd`, `gh auth token`, force-push-to-main and
+`--no-verify` without anyone noticing. The full set was restored the same
+day (2026-08-02), but the deny set in these files remains the canon;
+assume any live deployment lags it until a `verify.sh` exists (not built
+yet) or you've diffed by hand.
 
 ### Windows deployments — mirror every rule into PowerShell
 
@@ -79,9 +80,10 @@ flip those rules to route to your phone instead (see the file's own comments).
 | Ask  | `curl x \| sh`, force-push, reads of `~/.ssh/**` `~/.env*` | Pause for approval. Optionally routed to a secondary channel via a relay hook. |
 | Auto | everything else | Routed through `defaultMode=auto` — a classifier runs clearly-safe calls silently and escalates risky/ambiguous ones to Ask. (Gemini has no classifier: the shipped policy ships **no** blanket-allow catch-all, so unmatched calls fall to its native `defaultApprovalMode`, which prompts for shell. Keep the deny/ask rules comprehensive there.) |
 
-*Reference deployment status:* the Deny row above is recommended canon; the
-reference deployment currently enforces a subset of it live (see "Drift is
-expected" above). Applying these files as published gives you the full set.
+*Reference deployment status:* the Deny row above is recommended canon and
+has been enforced in full on the reference deployment since 2026-08-02 (see
+"Drift is expected" above for the lapse that prompted the restore). Applying
+these files as published gives you the full set.
 
 The **Ask** tier can either prompt in-terminal or, if you wire up a
 human-in-the-loop relay (see `../docs/human-in-the-loop.md`), route to a

@@ -27,8 +27,13 @@ approval_policy = "on-request"
 # The tradeoff: full-access removes constant sandbox friction on a machine
 # the operator already treats as agent-writable, at the price of losing the
 # hard OS floor under the (bypassable — see wrapper tunneling in
-# ../docs/permissions-protocol.md) rule layer. If you have not built a
-# hardened relay, keep a sandboxed mode ("workspace-write") instead.
+# ../docs/permissions-protocol.md) rule layer. The reference deployment's
+# choice is empirical, not casual: a restrictive sandbox was tried and broke
+# agent-to-agent interaction — orchestrator-spawned worker CLIs could not
+# operate across the repos/paths the delegation flow needs — so full-access
+# plus the relay gate is the deliberate posture until sandboxing can be
+# reintroduced without severing delegation. If you have not built a hardened
+# relay, keep a sandboxed mode ("workspace-write") instead.
 sandbox_mode = "workspace-write"   # reference deployment: "danger-full-access" — see warning above
 
 # Project trust levels — auto-trust certain dirs so Codex doesn't ask every

@@ -16,7 +16,11 @@ approval_policy = "on-request"
 # "danger-full-access", which DISABLES the OS sandbox entirely and makes the
 # relay + PermissionRequest hook the ONLY gate — acceptable only with a
 # hardened relay in place (see ../../docs/human-in-the-loop.md and the
-# warning block in ../../permissions/codex-config.permissions.toml).
+# warning block in ../../permissions/codex-config.permissions.toml). The
+# reference fleet's reason is empirical: a restrictive sandbox broke
+# agent-to-agent delegation (orchestrator-spawned worker CLIs lost access
+# to the paths the flow needs), so full-access stays until sandboxing can
+# return without severing delegation.
 sandbox_mode = "workspace-write"
 
 # Project trust levels: auto-trust specific directories so Codex doesn't
