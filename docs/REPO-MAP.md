@@ -74,12 +74,13 @@ hive-mind-os/
 │       ├── gen_manifest.py         ← write MANIFEST.md (title-only hub list)
 │       ├── bind_clusters.py        ← write BINDING_QUEUE.md (orphan clusters)
 │       ├── lint_binding.py         ← CI gate: every cluster must bind to a hub
+│       ├── lint_edges.py           ← pre-commit gate: edges must use the closed 9-verb set
 │       ├── session_start_hook.py   ← inject MANIFEST + BINDING_QUEUE at start
 │       ├── requirements.txt
 │       └── tests/                  ← pytest suites for the above
 │
 └── docs/                     ── DOCS: the protocol, deeper than the identity files
-    ├── INFRASTRUCTURE.md     ← the deployed-system view (7 Mermaid diagrams)
+    ├── INFRASTRUCTURE.md     ← the deployed-system view (9 Mermaid diagrams)
     ├── playbooks/            ← the role-slot doctrine + per-role playbooks
     │   ├── README.md         ← roles are slots; resolver contract; precedence
     │   ├── CEO-PLAYBOOK.md
@@ -91,6 +92,7 @@ hive-mind-os/
     ├── human-in-the-loop.md  ← relay pattern (the relay itself is NOT shipped)
     ├── hygiene.md            ← shipped vs documented-add-on wiki hygiene
     ├── multi-runtime.md      ← cross-runtime parity + divergences
+    ├── observability.md      ← the dashboard / OS-layer pattern (companion)
     ├── decision-protocol.md  ← structured decision-making (council/consult patterns)
     ├── autonomous-runs.md    ← the unsupervised overnight run pattern
     └── executor-tier.md      ← cheap-model tier behind a local proxy
@@ -106,22 +108,24 @@ plugin marketplaces) survive. Symlink the doctrine; merge the permissions.
 ## 2. What ships here vs. what you bring
 
 The doctrine names four concerns. This repo ships two of them outright (RULES +
-a KNOWLEDGE starter) and documents the other two as **companions you bring or
-build**. This boundary is the single most important thing to understand before
-adopting.
+a KNOWLEDGE starter) — plus **starter** skills and slash commands — and
+documents the other two as **companions you bring or build**. This boundary is
+the single most important thing to understand before adopting.
 
 ```mermaid
 flowchart TB
     subgraph SHIP["✅ SHIPPED in this repo"]
         direction TB
-        R["RULES<br/>identity/ · permissions/ · config-templates/ · docs/"]
-        K["KNOWLEDGE starter<br/>wiki-template/ (SCHEMA + scaffold + manifest + lint)"]
+        R["RULES<br/>identity/ · permissions/ · docs/ (incl. playbooks/)<br/>config-templates/ (incl. hivemind/ control plane)"]
+        S["STARTER BEHAVIOURS<br/>skills/ (consult · council · delegate-external · browser-ops)<br/>commands/ (save · quicksave · afk · back)"]
+        K["KNOWLEDGE starter<br/>wiki-template/ (SCHEMA + scaffold + manifest + lints)"]
         I["INSTALL<br/>bootstrap/ (symlink · backup · rollback)"]
     end
 
     subgraph BYO["🔌 COMPANION — bring or build your own"]
         direction TB
-        T["EXECUTABLES (tooling repo)<br/>hooks · delegate-* bins · shared slash commands<br/>(routing.toml now ships here as a template;<br/>the full skills library is its own versioned repo)"]
+        T["EXECUTABLES (tooling repo)<br/>hooks · delegate-* bins · the canonical<br/>slash-command set that grows past the starters"]
+        L["FULL SKILLS LIBRARY<br/>its own versioned repo, cloned into the<br/>runtime's skills dir (starters ship here)"]
         H["HUMAN-IN-THE-LOOP (approval-relay)<br/>daemon · adapters · mailbox<br/>pattern → docs/human-in-the-loop.md"]
         O["OS UI (dashboard)<br/>cockpit + control surface, collector-per-source<br/>pattern → docs/observability.md"]
         C["WORKING-MEMORY<br/>e.g. context-mode MCP (output containment)"]
@@ -130,14 +134,15 @@ flowchart TB
     R -. "session-start hook calls" .-> K
     I -. "places" .-> R
     R -. "ASK rules escalate to" .-> H
-    R -. "delegate-external routes via" .-> T
+    S -. "delegate-external dispatches via" .-> T
+    S -. "grow the starters into" .-> L
     O -. "surfaces every layer's<br/>live state" .-> R
     R -. "offloads large output to" .-> C
 
     classDef ship fill:#dfd,stroke:#393,stroke-width:2px
     classDef byo fill:#eef,stroke:#669,stroke-dasharray:4 3
-    class R,K,I ship
-    class T,H,O,C byo
+    class R,S,K,I ship
+    class T,L,H,O,C byo
 ```
 
 **Why the split:** RULES and KNOWLEDGE are plain text — portable, auditable, no
@@ -208,9 +213,14 @@ alone.
 
 ## 4. Session-start data flow — the shipped wiki loop
 
-What the KNOWLEDGE half does at the start of every session. Only the **manifest**
-(Layer-1 hub titles) is injected; deeper layers are walked on demand per the Wiki
-Protocol. This is the whole shipped feedback loop — no LLM, no network.
+What the KNOWLEDGE half does at the start of every session. Two artifacts are
+injected — the **manifest** (Layer-1 hub titles) in full, and a **≤10-line
+work-queue digest** counting unbound clusters (plus pending items, if you wire
+a hygiene rollup that writes `PENDING.md`). The queues themselves stay on disk;
+deeper wiki layers are walked on demand per the Wiki Protocol. Injection goes
+through the Claude Code SessionStart JSON envelope
+(`hookSpecificOutput.additionalContext`) — raw stdout is **not** injected. This
+is the whole shipped feedback loop — no LLM, no network.
 
 ```mermaid
 flowchart LR
@@ -221,28 +231,32 @@ flowchart LR
         BIND["bind_clusters.py"]
         HOOK["session_start_hook.py"]
         LINT["lint_binding.py"]
+        ELINT["lint_edges.py"]
     end
 
     Vault --> GEN --> MAN["MANIFEST.md<br/>(title-only hub list)"]
     Vault --> BIND --> BQ["BINDING_QUEUE.md<br/>(clusters with no topic edge)"]
-    MAN --> HOOK
-    BQ --> HOOK
-    HOOK -->|"additionalContext<br/>at session start"| AGENT["Agent context<br/>(attention window)"]
+    MAN -->|"injected in full"| HOOK
+    BQ -->|"counted, not dumped"| HOOK
+    HOOK -->|"JSON envelope on stdout:<br/>hookSpecificOutput.additionalContext<br/>= manifest + ≤10-line work-queue digest"| AGENT["Agent context<br/>(attention window)"]
 
     AGENT -->|"on each message:<br/>scan → walk hub if hit"| Vault
     AGENT -->|"session end:<br/>bind cluster → topic"| Vault
     Vault --> LINT -->|"exit ≠ 0 if any<br/>cluster unbound"| CI([CI / pre-commit gate])
+    Vault --> ELINT -->|"exit ≠ 0 on an edge<br/>outside the closed 9-verb set"| CI
 
     classDef store fill:#dfe9f3,stroke:#369
     classDef gen fill:#dfd,stroke:#393
     class Vault,MAN,BQ store
-    class GEN,BIND,HOOK,LINT gen
+    class GEN,BIND,HOOK,LINT,ELINT gen
 ```
 
 **Documented but NOT shipped** (see `docs/hygiene.md`): the per-hub `Current
-truth` block reconciler and the local-LLM contradiction judge. They are described
-as input-contracts so you can wire your own; the template enforces only the one
-CI-safe rule — *every cluster binds to a topic hub* (`lint_binding.py`).
+state` block reconciler (`state_reconciled`) and the local-LLM contradiction
+judge. They are described as input-contracts so you can wire your own; the
+template enforces only the two CI-safe rules — *every cluster binds to a topic
+hub* (`lint_binding.py`) and *every edge uses the closed 9-verb vocabulary*
+(`lint_edges.py`).
 
 ---
 
@@ -259,7 +273,7 @@ CI-safe rule — *every cluster binds to a topic hub* (`lint_binding.py`).
 | Starter slash commands (save, quicksave, afk, back) | **shipped** | `commands/` |
 | Installer (symlink/copy/backup/rollback) | **shipped** | `bootstrap/` |
 | Wiki schema + scaffold | **shipped** | `wiki-template/` |
-| Manifest + binding queue + binding lint | **shipped** | `wiki-template/scripts/` |
+| Manifest + binding queue + binding lint + edge-vocabulary lint | **shipped** | `wiki-template/scripts/` |
 | Session-start manifest injection | **shipped** (reference impl) | `session_start_hook.py` |
 | Per-hub truth blocks | documented add-on | `docs/hygiene.md` |
 | Contradiction judge (executor-tier LLM) | documented add-on | `docs/hygiene.md` |

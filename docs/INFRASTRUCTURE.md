@@ -1,6 +1,6 @@
 # Agent Infrastructure — Unified Reference
 
-> **TL;DR (≤80 words):** Eight Mermaid diagrams + tables giving the full picture
+> **TL;DR (≤80 words):** Nine Mermaid diagrams + tables giving the full picture
 > of how the cross-agent stack interlocks. Five runtimes (Claude / Codex /
 > Gemini-family `agy` / Grok / Kimi) on two OSes (Linux WSL + Windows) are unified via symlinks into four
 > canonical GitHub repos — rules, executables, knowledge, human-in-the-loop.
@@ -10,8 +10,10 @@
 
 ## How to read this document
 
-Eight Mermaid diagrams, progressively zoomed. Each is self-contained — read in
-order for the full story, or jump to the section you need. Diagrams render
+Nine Mermaid diagrams across eight numbered panels, progressively zoomed (Panel
+5 carries two: the approval sequence and the hook-surface map). Each is
+self-contained — read in order for the full story, or jump to the section you
+need. Diagrams render
 natively in Obsidian (live preview), GitHub, and any modern markdown viewer.
 Tables at the end pull file-paths and per-agent surfaces out of the panels for
 one-stop reference.
@@ -80,7 +82,7 @@ flowchart TB
     subgraph REPOS[Canonical repos — github.com/your-org/*]
         direction LR
         AHM["hive-mind-os<br/>(RULES)<br/>identity files,<br/>permission excerpts,<br/>protocol docs"]
-        ATOOL["Tooling repo<br/>(EXECUTABLES)<br/>hooks, bins,<br/>routing.toml,<br/>shared skills"]
+        ATOOL["Tooling repo<br/>(EXECUTABLES)<br/>hooks, bins,<br/>slash commands,<br/>role control plane"]
         WIKI["Knowledge-graph repo<br/>(KNOWLEDGE)<br/>wiki vault,<br/>topic hubs,<br/>clusters, sources"]
         RELAY["approval-relay<br/>(HUMAN-IN-LOOP)<br/>daemon, adapters,<br/>mailbox"]
     end
@@ -112,6 +114,7 @@ flowchart TB
     CX_L -.IPC.-> RELAY
     GM_L -.IPC.-> RELAY
     GK_L -.IPC.-> RELAY
+    KM_L -.IPC.-> RELAY
 
     classDef linux fill:#dfe9f3,stroke:#369
     classDef win fill:#f5e6d8,stroke:#a36
@@ -132,7 +135,8 @@ discipline.
 ## 2. Symlink topology — how a runtime directory maps to canonical
 
 Zoom in on one runtime (Claude Code, Linux). Identity is full-file symlinked
-**by the bootstrap**; hooks/skills are tree-symlinked and permission settings
+**by the bootstrap**; hooks and slash commands are tree-symlinked, the skills
+dir is its own git repo cloned in place (Panel 6), and permission settings
 are *merged* as **separate manual steps** (canonical holds excerpts because live
 files also carry machine-specific stuff like MCP servers). The bootstrap
 installs the identity symlink only — it does not merge permissions or symlink
@@ -146,6 +150,7 @@ flowchart LR
         ST["settings.json<br/>(live file)"]
         HK["hooks/<br/>(dir)"]
         SK["skills/<br/>(dir)"]
+        CMD["commands/<br/>(dir)"]
         PL["plugins/<br/>(dir)"]
         MEM["projects/.../memory/<br/>(per-project, local)"]
     end
@@ -160,13 +165,16 @@ flowchart LR
     subgraph ATOOL[Tooling repo]
         direction TB
         AT_HK["claude/linux/hooks/"]
-        AT_SK["shared/skills/"]
+        AT_CMD["shared/claude-commands/"]
         AT_PL["claude/linux/plugins/<br/>(marketplace metadata)"]
     end
 
+    SKREPO["Skills repo<br/>(its own versioned git repo —<br/>NOT a tooling-repo subtree)"]
+
     ID -- "symlink (bootstrap)" --> AHM_ID
     HK -- "symlink (tree, manual)" --> AT_HK
-    SK -- "symlink (tree, manual)" --> AT_SK
+    CMD -- "symlink (tree, manual)" --> AT_CMD
+    SK -- "IS the repo<br/>(cloned in place)" --> SKREPO
     ST -- "merged manually<br/>(NOT by bootstrap)" --> AHM_PERM
     PL -. "marketplace install" .-> AT_PL
     MEM -. "not canonical<br/>(per-machine identity)" .-> MEM
@@ -176,13 +184,13 @@ flowchart LR
     classDef live fill:#fde,stroke:#a36
     classDef canon fill:#dfd,stroke:#393
     classDef merge fill:#ffe,stroke:#a83
-    class ID,HK,SK live
-    class AHM_ID,AT_HK,AT_SK canon
+    class ID,HK,SK,CMD live
+    class AHM_ID,AT_HK,AT_CMD,SKREPO canon
     class ST,AHM_PERM merge
 ```
 
 **Bootstrap rule:** the bootstrap *symlinks the identity files only* (single
-canonical source of truth). Permission settings get *merged* and hooks/skills
+canonical source of truth). Permission settings get *merged* and hooks/commands
 get tree-symlinked as **separate manual steps you run after** — the live
 settings file keeps MCP/plugin keys while only permission keys are versioned.
 Per-project memory stays local — identity for the machine, not the fleet. Same
@@ -207,7 +215,7 @@ flowchart LR
     end
 
     AM -->|always-on inject<br/>identity/preferences| AC
-    OW -->|always-on inject<br/>Layer-1 nav backbone| AC
+    OW -->|"always-on inject (JSON envelope):<br/>Layer-1 manifest + work-queue digest"| AC
 
     AC["Agent Context<br/>(attention window)"]
 
@@ -216,7 +224,7 @@ flowchart LR
     end
 
     AC <-->|ctx_execute / ctx_search<br/>on demand| CTX
-    AC --> ACT["Active Session<br/>(Claude / Codex / Gemini)"]
+    AC --> ACT["Active Session<br/>(any runtime in the fleet)"]
 
     ACT -. "manual: edits to MEMORY.md" .-> AM
     ACT -. "Doer mode: cluster opens<br/>on tracked-repo edits<br/>+ /save · /quicksave checkpoints<br/>(auto-quicksave at ~30% context)" .-> OW
@@ -247,7 +255,10 @@ ASK — which escalates to the approval relay (Panel 5).
 ```mermaid
 flowchart TD
     Call([Agent attempts tool call])
-    Call --> Resolver["PERMISSION RESOLVER<br/>reads:<br/>• ~/.claude/settings.json<br/>• ~/.codex/config.toml<br/>• ~/.gemini/policies/<br/>(sourced from<br/>hive-mind-os/permissions/)"]
+    Call --> Resolver["PERMISSION RESOLVER<br/>reads the live per-runtime config:<br/>• ~/.claude/settings.json<br/>• ~/.codex/config.toml<br/>• ~/.gemini/settings.json + policies/<br/>• ~/.grok/config.toml<br/>• ~/.kimi-code/config.toml<br/>(sourced from<br/>hive-mind-os/permissions/)"]
+
+    WinNote["Rules are PER-TOOL.<br/>On Windows a Bash-only ruleset is<br/>silently bypassed by PowerShell calls —<br/>mirror every Bash rule as PowerShell"]
+    WinNote -.-> Resolver
 
     Resolver --> Match{Rule match?}
 
@@ -291,7 +302,7 @@ types (approval, question, notification).
 
 ```mermaid
 sequenceDiagram
-    participant Agent as Agent runtime<br/>(Claude/Codex/Gemini)
+    participant Agent as Agent runtime<br/>(any of the five)
     participant Adapter as Per-agent adapter<br/>(approval-relay/adapters/)
     participant MBox as mailbox/<br/>(JSON files)
     participant Daemon as approver daemon<br/>(systemd, Python)
@@ -299,27 +310,34 @@ sequenceDiagram
     participant Phone as User's phone
 
     Agent->>Adapter: ASK-rule triggered<br/>(tool, args, request_id)
-    Adapter->>MBox: atomic write<br/>&lt;id&gt;.json
-    MBox-->>Daemon: inotify event
-    Daemon->>Bot: sendMessage<br/>(text + inline keyboard)
-    Bot->>Phone: notification<br/>(Approve / Deny buttons)
+    Note over Adapter: presence gate, strict precedence:<br/>1 force-off (mute) → 2 sticky AFK flag → 3 idle ≥ N min
 
-    alt User approves within timeout
-        Phone->>Bot: tap "Approve"
-        Bot-->>Daemon: callback_query
-        Daemon->>MBox: write &lt;id&gt;.reply<br/>(approved=true)
-        MBox-->>Adapter: file appears
-        Adapter-->>Agent: unblock tool call
-        Agent->>Agent: tool executes
-    else User denies
-        Phone->>Bot: tap "Deny"
-        Bot-->>Daemon: callback_query
-        Daemon->>MBox: write &lt;id&gt;.reply<br/>(approved=false)
-        Adapter-->>Agent: abort tool call
-    else Timeout (configurable; ref ~23h)
-        Note over Daemon: no callback received
-        Daemon->>MBox: write &lt;id&gt;.reply<br/>(approved=false, reason=timeout)
-        Adapter-->>Agent: abort tool call (DENY)
+    alt Human present, or relay forced off
+        Adapter-->>Agent: emit "ask" → native terminal prompt<br/>(never a silent exit 0)
+    else Human away
+        Adapter->>MBox: atomic write<br/>{id}.json
+        MBox-->>Daemon: inotify event
+        Daemon->>Bot: sendMessage<br/>(text + inline keyboard)
+        Bot->>Phone: notification<br/>(Approve / Deny buttons)
+        Note over Daemon,Phone: daemon re-polls the gate every ~2 s —<br/>human back at the keyboard, or force-off flipped,<br/>withdraws the phone request → terminal prompt
+
+        alt User approves within timeout
+            Phone->>Bot: tap "Approve"
+            Bot-->>Daemon: callback_query
+            Daemon->>MBox: write {id}.reply<br/>(approved=true, signed)
+            MBox-->>Adapter: file appears
+            Adapter-->>Agent: unblock tool call
+            Agent->>Agent: tool executes
+        else User denies
+            Phone->>Bot: tap "Deny"
+            Bot-->>Daemon: callback_query
+            Daemon->>MBox: write {id}.reply<br/>(approved=false)
+            Adapter-->>Agent: abort tool call
+        else Timeout (configurable — ref ~23h)
+            Note over Daemon: no callback received
+            Daemon->>MBox: write {id}.reply<br/>(approved=false, reason=timeout)
+            Adapter-->>Agent: abort tool call (DENY)
+        end
     end
 ```
 
@@ -327,6 +345,35 @@ sequenceDiagram
 - **approval** — yes/no buttons (the diagram above)
 - **question** — multi-choice buttons or free-text reply
 - **notification** — no buttons, fire-and-forget
+
+### The three hook surfaces
+
+Three different runtime events feed that one pipeline, through the same
+presence gate. They differ in *how the human's answer gets back in* — and in
+which way they fail. Detail: `docs/human-in-the-loop.md`.
+
+```mermaid
+flowchart LR
+    GATE{"Presence gate<br/>force-off (mute) →<br/>sticky AFK flag →<br/>idle ≥ N min"}
+
+    H1["PreToolUse: Bash<br/>approval gate"] --> GATE
+    H2["PreToolUse: AskUserQuestion<br/>question redirect"] --> GATE
+    H3["Stop<br/>turn-end ping"] --> GATE
+
+    GATE -->|present / muted| TERM["Native terminal prompt<br/>(hook must emit ask —<br/>never a silent exit 0)"]
+    GATE -->|away| PH["Phone"]
+
+    PH -->|"tap on an approval"| O1["allow / deny —<br/>fails CLOSED (timeout = DENY)"]
+    PH -->|"answer to a question"| O2["hook exits 2 with the answers on stderr<br/>= the answer-injection channel;<br/>fails OPEN to the native picker"]
+    PH -->|"reply to a turn-end ping"| O3["hook returns decision: block,<br/>reply text as reason =<br/>injected as the next user turn"]
+
+    classDef hook fill:#dfe9f3,stroke:#369
+    classDef gate fill:#ffe,stroke:#a83
+    classDef out fill:#dfd,stroke:#393
+    class H1,H2,H3 hook
+    class GATE,PH gate
+    class O1,O2,O3,TERM out
+```
 
 **Failure modes handled:** daemon dead → adapter falls back to terminal prompt;
 notification API down → exponential backoff then terminal fallback; ambiguous
@@ -346,34 +393,39 @@ flowchart TD
         NS_C["Claude native<br/>~/.claude/skills/<br/>+ plugin-shipped<br/>(superpowers:*,<br/> context-mode:*, ...)"]
         NS_CX["Codex native<br/>~/.codex/skills/<br/>(domain-specific tasks)"]
         NS_G["Gemini native<br/>~/.gemini/extensions/<br/>(slash-commands as<br/> extensions)"]
-        SH["SKILLS REPO (own versioned repo)<br/>installed at ~/.claude/skills/<br/>(delegate-external, consult,<br/> council, browser-ops, ...)"]
-        CMD["SLASH COMMANDS<br/><tooling-repo>/shared/claude-commands/<br/>symlinked → ~/.claude/commands/"]
+        SH["SKILLS REPO (own versioned repo)<br/>installed at ~/.claude/skills/<br/>(delegate-external, consult,<br/> council, browser-ops, ...)<br/>starters ship in hive-mind-os/skills/"]
+        CMD["SLASH COMMANDS<br/><tooling-repo>/shared/claude-commands/<br/>symlinked → ~/.claude/commands/<br/>starters ship in hive-mind-os/commands/"]
         MCP["MCP PLUGINS<br/>auto-installed via<br/>marketplace.json metadata<br/>(context-mode, ...)"]
     end
 
     OPUS["Orchestrator-slot agent<br/>(planner / integrator;<br/>Claude in the reference fleet)"]
     DEL["delegate-external skill<br/>(reads ~/.claude/routing.toml —<br/>template: config-templates/hivemind/)"]
 
-    OPUS --> Decide{Task fits a<br/>non-Claude runtime?}
-    Decide -->|NO| Inline([Handle inline<br/>in Claude])
+    ROLES["roles.toml<br/>(worker pool +<br/> who holds the apex slot)"]
+
+    OPUS --> Decide{Task fits a<br/>worker runtime?}
+    Decide -->|NO| Inline([Handle inline<br/>in the orchestrator])
     Decide -->|YES| DEL
 
     DEL --> Route{Routing rule}
+    ROLES -. "sets the pool;<br/>routing picks within it" .-> Route
     Route -->|terminal-agentic grind,<br/>surgical edits| WCX["delegate-codex<br/>(bash wrapper,<br/> Win: .cmd bridge)"]
-    Route -->|long-context, cross-file,<br/>frontend/UI| WGM["Gemini-family worker<br/>(wrapper/bridge per<br/> current runtime)"]
+    Route -->|long-context, cross-file,<br/>frontend/UI,<br/>cheap cleanup| WGM["Gemini-family worker<br/>(wrapper/bridge per<br/> current runtime)"]
     Route -->|live web research,<br/>best-of-N parallel| WGK["grok (native,<br/> no wrapper)"]
     Route -->|generalist feature work,<br/>second-family review| WKM["kimi (headless<br/>print mode)"]
-    Route -->|cheap parallel cleanup| WCX
+    Route -->|decision-free volume<br/>bulk extract / classify| WFL["flash — executor tier<br/>(HTTP to a local proxy,<br/> no CLI wrapper)"]
 
     WCX --> CXR["Codex CLI exec"]
     WGM --> GMR["Antigravity (agy) exec"]
     WGK --> GKR["Grok CLI"]
     WKM --> KMR["Kimi Code CLI exec"]
+    WFL --> FLR["Cheap-model API<br/>behind the executor proxy"]
 
     CXR --> Result([Result returned])
     GMR --> Result
     GKR --> Result
     KMR --> Result
+    FLR --> Result
     Result --> Review["Orchestrator reviews,<br/>integrates,<br/>surfaces decisions"]
 
     SH -. used by .-> OPUS
@@ -386,8 +438,8 @@ flowchart TD
     classDef plan fill:#fffbe6,stroke:#a83
     classDef exec fill:#dfd,stroke:#393
     class NS_C,NS_CX,NS_G,SH,CMD,MCP inv
-    class OPUS,DEL,Decide,Route plan
-    class WCX,WGM,WKM,CXR,GMR,KMR,Review exec
+    class OPUS,DEL,Decide,Route,ROLES plan
+    class WCX,WGM,WGK,WKM,WFL,CXR,GMR,GKR,KMR,FLR,Review exec
 ```
 
 **Why bash wrappers and not in-Claude tool calls:** Codex / the Gemini-family
@@ -511,6 +563,8 @@ flowchart TB
         KMR["Kimi Code CLI"]
     end
 
+    HIVE["Role control plane<br/>roles.toml + mode.state<br/>(CEO / orchestrator / worker<br/>are SLOTS, not identities)"]
+
     subgraph CANON[Canonical GitHub repos]
         direction LR
         AHM[hive-mind-os<br/>RULES]
@@ -558,10 +612,12 @@ flowchart TB
     style OSUI fill:#eef6ff,stroke:#369
 
     USER --> RUNTIMES
+    USER -. "sets mode.state<br/>present / away" .-> HIVE
+    HIVE -. "assigns the apex slot<br/>+ the worker pool" .-> RUNTIMES
     USER -. via phone .-> BOT
     USER -. browser .-> DASH
     DASH -. reads every layer .-> RUNTIMES
-    WOLF -. dispatches per routing.toml .-> RUNTIMES
+    WOLF -. "dispatches per routing.toml" .-> RUNTIMES
     DASH -. "relay presence (AFK) toggle" .-> DMN
 
     RUNTIMES -.symlinks.-> AHM
@@ -569,7 +625,7 @@ flowchart TB
     CCR -.symlinks.-> WIKI
 
     AM -->|inject| RUNTIMES
-    OB -->|inject MANIFEST| RUNTIMES
+    OB -->|"inject MANIFEST + work-queue digest"| RUNTIMES
     RUNTIMES <-->|ctx_execute| CTX
 
     RUNTIMES --> RES
@@ -585,9 +641,14 @@ flowchart TB
     RUNTIMES -. "Doer-mode cluster<br/>+ /save · /quicksave" .-> OB
     RUNTIMES -. promotions .-> AM
 
-    CCR -. delegate-external .-> CXR
+    CCR -. "delegate-external<br/>(whoever holds the<br/>orchestrator slot → the pool)" .-> CXR
     CCR -. delegate-external .-> GMR
+    CCR -. delegate-external .-> GKR
     CCR -. delegate-external .-> KMR
+
+    FLASH["executor tier<br/>(flash, behind a local proxy)"]
+    CCR -. "decision-free volume" .-> FLASH
+    JOBS -. LLM calls .-> FLASH
 
     AHM -.git push/pull.-> RUNTIMES
     ATOOL -.git push/pull.-> RUNTIMES
