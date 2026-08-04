@@ -1,7 +1,16 @@
 # Permissions Protocol
 
-How permission decisions flow across Claude Code, Codex CLI, and Gemini CLI —
-the cross-agent model.
+How permission decisions flow across every runtime in the fleet — the
+cross-agent model.
+
+The reference fleet runs five: Claude Code, Codex CLI, the Gemini-family
+worker (Antigravity `agy`), Grok CLI, and Kimi Code CLI. The three worked
+examples below (Claude / Codex / Gemini) are the ones with the most distinct
+hook mechanics; Grok runs in Claude-compat mode and inherits Claude's rules
+(see `../permissions/grok-config.permissions.toml`), and Kimi's veto-only
+hook shape is a fleet-specific variant. The model is per-runtime pluggable
+by design — adding a sixth runtime means writing one adapter, not rewriting
+the model.
 
 ## The shared decision tree
 
@@ -36,7 +45,9 @@ For any tool an agent wants to use, the decision flows:
                        Proceed         Block
 ```
 
-Same shape for all three agents. The implementation differs per runtime.
+Same shape for every runtime. The implementation differs per runtime — the
+hook event name, the payload schema, and the response channel all vary; the
+DENY / ASK / ALLOW decision does not.
 
 ## The three gates
 
@@ -262,7 +273,14 @@ hard floor underneath it is the runtime's own gates plus OS-level separation
   trust hash lives in `[hooks.state]` in the config. Don't copy that table
   across machines.
 
-### Gemini CLI
+### Gemini CLI — legacy, kept for its transferable lessons
+
+> The consumer `gemini` npm CLI shut down on 2026-06-18; the reference
+> fleet's Gemini-family worker is now **Antigravity (`agy`)**. This section
+> is retained because the two traps below (an approval mode that only exists
+> as a CLI flag, and a catch-all that pages on every call) are the kind of
+> thing you will meet again in a different runtime's clothing. Treat it as a
+> worked example, not as live wiring.
 
 - Hook: `BeforeTool` in `~/.gemini/settings.json`.
 - Permission rules: TOML policy files in `~/.gemini/policies/*.toml`.
@@ -280,17 +298,20 @@ hard floor underneath it is the runtime's own gates plus OS-level separation
   Use plain `decision = "allow"` for the catch-all; only specific high-risk
   rules carry `phone_decision = "ask_user"`.
 
-## Why mirror the same rules across all three agents
+## Why mirror the same rules across every runtime
 
 Three reasons:
 
 1. **User mental model.** "A read of `.ssh` is risky" — true regardless of
    which CLI makes the call. The cross-agent mirror keeps the user from learning
-   three separate ask/deny vocabularies.
-2. **One relay, one source of truth.** All three adapters call into the same
+   a separate ask/deny vocabulary per runtime.
+2. **One relay, one source of truth.** Every adapter calls into the same
    permission-rules checker in the relay repo. It reads Claude's
-   `permissions.ask` block and Gemini's TOML policies; Codex tool names get
-   aliased to Claude tool names. A rule defined once propagates everywhere.
+   `permissions.ask` block and the Gemini-family TOML policies; other runtimes'
+   tool names get aliased to Claude tool names. A rule defined once propagates
+   everywhere. The corollary bites too: a runtime that *inherits* Claude's rules
+   inherits whatever is actually in the live file, not what the canon says —
+   see the drift note in `../permissions/README.md`.
 3. **Audit trail.** When the user gets a relay notification, it identifies the
    agent making the request. The decision file in the mailbox carries the agent
    name. The user can review post-hoc what each agent has been doing.
