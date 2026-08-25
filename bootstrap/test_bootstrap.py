@@ -15,6 +15,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import bootstrap  # noqa: E402 — after sys.path shim
 
 
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
 def _symlinks_permitted(tmp_path) -> bool:
     """Probe whether this platform/process can create symlinks.
 
@@ -51,6 +54,24 @@ def test_mappings_cover_five_runtimes(tmp_path):
     assert tmp_path / "AGENTS.md" in dests
     # All five dests are distinct paths — no mapping collides with another.
     assert len(dests) == 5
+
+
+def test_all_identities_use_session_origin_for_live_role():
+    """A human-opened chat is its own orchestrator; a dispatch is a worker."""
+    for path in sorted((REPO_ROOT / "identity").glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        assert "The human opened this chat" in text, path
+        assert "Dispatched by another agent" in text, path
+        assert "does not choose the present-mode orchestrator" in text, path
+
+
+def test_identities_do_not_embed_an_unconditional_relay_command():
+    """Question routing belongs in one playbook and must honor live OFF state."""
+    for path in sorted((REPO_ROOT / "identity").glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        assert "docs/human-in-the-loop.md" in text, path
+        assert "<your-relay-command>" not in text, path
+        assert "run the relay instead" not in text, path
 
 
 def test_plan_skips_existing(tmp_path):

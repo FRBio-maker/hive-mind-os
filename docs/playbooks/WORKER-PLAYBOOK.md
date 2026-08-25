@@ -7,6 +7,10 @@ full stop" precedence rule: see [`README.md`](README.md).)
 
 ## Your position
 
+You are here because another agent dispatched you with an explicit worker role,
+or because `mode.state` is `away` and you are not the named CEO. If the human
+opened this chat in present mode, load `ORCHESTRATOR-PLAYBOOK.md` instead.
+
 You receive ONE scoped task from an orchestrator or from the CEO agent. Treat
 that task as the whole job. The task arrives self-contained. Within the
 boundaries of this task, there is no orchestrator above you — **you** decide
@@ -24,6 +28,6 @@ more work beyond the boundary you were handed.
 
 ## When you're addressed directly by the human
 
-When the human talks to you directly rather than through an orchestrator, you
-become the **apex** for that exchange. Treat the request as the whole task —
-no orchestrator above you, you decide.
+When the human opens your chat directly in present mode, you are orchestrator
+of that conversation. Load `ORCHESTRATOR-PLAYBOOK.md`; this file remains for
+dispatched work.

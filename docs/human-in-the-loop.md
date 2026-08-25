@@ -197,6 +197,28 @@ emit_decision("ask")   # agent prompts user in terminal
 return 0
 ```
 
+### Agents must consult the same live state
+
+The presence gate is not only a hook implementation detail. Any identity or
+agent instruction that says "run the relay" can bypass dashboard force-off if
+it calls the backend directly. Every clarifying question therefore needs one
+read-only route check at question time, against the same authoritative state
+used by the hooks.
+
+Use a tiny adapter with this contract:
+
+- output exactly `relay` only when state collection succeeded and the relay is
+  both effective **on** and independently **verified**;
+- output `inline` for force-off, present/native routing, stale or unverified
+  state, malformed responses, timeout, or an unavailable dashboard;
+- perform no state change and emit diagnostics separately from its one-word
+  answer.
+
+Only exact `relay` authorizes the backend call. Everything else asks in the
+current chat. Identity files should point here rather than copying a backend
+command; this keeps Telegram, Slack, Signal, or any future transport behind the
+same state gate.
+
 ---
 
 ## The AskUserQuestion redirect

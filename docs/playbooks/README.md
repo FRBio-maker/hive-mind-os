@@ -11,7 +11,7 @@ The three playbooks in this folder are the operating manuals for each slot:
 | Playbook | Slot | Apex when |
 |---|---|---|
 | [`CEO-PLAYBOOK.md`](CEO-PLAYBOOK.md) | CEO | `mode.state` = `away` (unsupervised / overnight) |
-| [`ORCHESTRATOR-PLAYBOOK.md`](ORCHESTRATOR-PLAYBOOK.md) | orchestrator | `mode.state` = `present` (human-in-the-loop) |
+| [`ORCHESTRATOR-PLAYBOOK.md`](ORCHESTRATOR-PLAYBOOK.md) | orchestrator | human-opened chat + `mode.state` = `present` |
 | [`WORKER-PLAYBOOK.md`](WORKER-PLAYBOOK.md) | worker | never apex — one scoped task at a time |
 
 Starter copies of the control-plane files ship at
@@ -23,23 +23,23 @@ Starter copies of the control-plane files ship at
 
 ## The two control-plane files
 
-**`roles.toml`** names which agent currently holds the CEO slot, which holds
-the orchestrator slot, and the worker pool everyone else (including the
-off-duty apex agents) belongs to. Note that **`flash` — the executor tier
+**`roles.toml`** names the away-mode CEO, a dashboard/fallback orchestrator
+label, and the worker pool. It does not select the orchestrator of a
+human-opened present-mode chat. Note that **`flash` — the executor tier
 (`docs/executor-tier.md`) — is a first-class member of the worker pool**, not
 a footnote below it: routing can send decision-free volume work there like any
 other worker.
 
 **`mode.state`** is a one-word file: `present` or `away`.
 
-- `present` → the **orchestrator** agent is the apex, with the human in the
-  loop above it.
+- `present` → each agent whose chat the human opened is orchestrator of that
+  conversation, with the human above it.
 - `away` → the **CEO** agent is the apex, running unsupervised until the human
   returns.
 
-An agent that holds an apex slot in the *wrong* mode is just a worker: the CEO
-agent in `present` mode is a worker; the orchestrator agent in `away` mode is
-a worker. Only one apex exists at a time.
+In away mode, any agent other than the named CEO is a worker unless explicitly
+launched into a scoped orchestration role. Present mode can have more than one
+conversation-local orchestrator; their work remains separate under the human.
 
 > ⚠️ **Do not confuse `mode.state` "away" with the relay's presence (AFK)
 > toggle.** The relay toggle (`docs/human-in-the-loop.md`) only decides whether
@@ -67,12 +67,11 @@ than its code:
   exception there would abort session start for every agent on the machine. A
   config typo must degrade to "everyone is a worker", never to "nobody can
   start a session".
-- **Malformed or missing config → safe default:** orchestrator = `claude`,
-  everyone else = worker, mode = `present` (the human-in-the-loop,
-  least-autonomous default). Unreadable `mode.state` or an unrecognized word
-  in it also degrades to `present`.
-- Resolution matrix: CEO agent + `away` → `ceo`; orchestrator agent +
-  `present` → `orchestrator`; everything else → `worker`.
+- **Malformed or missing config → safe behavior:** a human-opened present-mode
+  chat remains its own orchestrator; away mode invents no CEO. Unreadable
+  `mode.state` or an unrecognized word degrades to `present`.
+- Resolution precedence: explicit launch role; then named CEO + `away`;
+  non-CEO + `away` → worker; human-opened + `present` → orchestrator.
 
 ## The optional session-start banner
 
@@ -87,11 +86,12 @@ to read `roles.toml` and self-assign covers the same ground.
 
 The two TOML files divide cleanly and the precedence is fixed:
 
-> **`roles.toml` sets the pool and who orchestrates; `routing.toml` picks
-> within the pool.**
+> **Session origin picks the present-mode orchestrator; `roles.toml` sets the
+> away CEO and worker pool; `routing.toml` picks within the pool.**
 
-`roles.toml` is upstream: it answers "who is apex, and who *may* receive
-work". `routing.toml` is downstream: given the pool, it answers "which worker
+Session origin is upstream for present-mode authority. `roles.toml` answers
+"who is away-mode CEO, and who *may* receive work". `routing.toml` is
+downstream: given the pool, it answers "which worker
 gets *this class* of task, with which model, and why". Swapping an agent into
 or out of the fleet is a `roles.toml` edit; re-ranking workers as model
 quality shifts is a `routing.toml` edit. Neither file hardcodes the other's

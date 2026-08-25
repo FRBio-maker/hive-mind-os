@@ -119,10 +119,11 @@ own scheduler (collector contract in `docs/observability.md`).
 
 ### The human-in-the-loop channel
 
-When you need the human to approve something or make a call and they are not at
-the keyboard, you do not guess and you do not stall. You send the request
-through the **approval relay** and block until they answer from their phone (or
-another out-of-band channel). Deeper map: `docs/permissions-protocol.md`.
+Clarifying questions follow the verified live-state contract in
+`docs/human-in-the-loop.md`: relay only when the control plane explicitly says
+effective and verified; OFF, stale, unknown, or failed checks ask inline.
+Consequential approvals keep their fail-closed hooks. Never call a relay
+backend directly around the state gate.
 
 ### Who orchestrates whom — role is a slot, not an identity
 
@@ -131,37 +132,34 @@ worker are slots** the human assigns through the role-slot control plane —
 two tiny files (templates in `config-templates/hivemind/`, full doctrine in
 `docs/playbooks/README.md`):
 
-- **`roles.toml`** — which agent holds the CEO slot, which holds the
-  orchestrator slot, and the worker pool. Note `flash` — the executor tier
+- **`roles.toml`** — the away-mode CEO, a dashboard/fallback orchestrator label,
+  and the worker pool. Note `flash` — the executor tier
   (`docs/executor-tier.md`) — is a first-class member of the worker pool.
-- **`mode.state`** — one word. `present` → the orchestrator agent is apex
-  with the human in the loop; `away` → the CEO agent is apex, unsupervised
-  (see `docs/playbooks/CEO-PLAYBOOK.md` for its safety rails). An apex agent
-  in the wrong mode is just a worker.
+- **`mode.state`** — one word. `present` → the agent in each human-opened chat
+  is orchestrator of that conversation; `away` → the named CEO is apex,
+  unsupervised (see `docs/playbooks/CEO-PLAYBOOK.md`).
 
-You resolve your role at session start: obey an injected "YOUR CURRENT ROLE"
-banner if a session-start hook provided one (the banner outranks
-self-resolution); otherwise read `roles.toml` × `mode.state` yourself, then
-load the matching playbook in `docs/playbooks/`. The reference resolver
-**never raises** — malformed or missing config degrades to the safe default
-(orchestrator = `claude`, everyone else = worker, mode = `present`), never to
-"nobody can start a session".
+You resolve your role from session origin: an injected launch role wins; a
+dispatch is a worker; the named away-mode CEO is apex; otherwise a
+human-opened present-mode chat is its own orchestrator. Load the matching
+playbook in `docs/playbooks/`. The reference resolver never raises, and missing
+away-mode config invents no autonomous CEO.
 
 **Precedence — dispatched with a scoped task ⇒ you are a `worker`. Full
 stop.** Never self-resolve from `roles.toml` when another agent dispatched
 you: that file records which agent *holds* a role, not what *this process* is.
 
-Task routing sits downstream: **`roles.toml` sets the pool and who
-orchestrates; `routing.toml` picks within the pool.** `routing.toml` installs
+Task routing sits downstream: **session origin sets present-mode authority;
+`roles.toml` sets the away CEO and pool; `routing.toml` picks within the
+pool.** `routing.toml` installs
 at the orchestrator runtime's config dir (reference deployment:
 `~/.claude/routing.toml`; template at `config-templates/hivemind/routing.toml`)
 — **that file is the source of truth for the roster, not this paragraph**
 (worker CLIs get replaced; see `docs/multi-runtime.md`) — dispatched via the
 orchestrator's delegation skill.
 
-**Figure out where you fit:** state, when you report back to the human (§5),
-which slot you believe you currently hold per `roles.toml` — and remember it
-can be reassigned tomorrow.
+**Figure out where you fit:** state your session origin and resolved live role
+when you report back to the human (§5).
 
 The full architecture map with diagrams is `docs/INFRASTRUCTURE.md` — read it
 if you want the complete picture before wiring in.
@@ -281,9 +279,9 @@ best-effort and degrades gracefully. Determine:
 - **Knowledge:** point your runtime at `<vault>/` and teach it the Wiki
   Protocol (scan `MANIFEST.md` each message; walk hubs on demand). This works
   for any runtime that can read files.
-- **Human-in-the-loop:** add an approval-relay adapter for your runtime if it
-  supports hooks. If not, at minimum *know that the relay exists* and ask the
-  human to relay for you when you're blocked.
+- **Human-in-the-loop:** implement the live-state routing contract in
+  `docs/human-in-the-loop.md`. An adapter may contact the configured backend
+  only on explicit relay authorization; OFF/unknown means inline.
 - **Delegation:** join the worker pool in `roles.toml`, and add yourself to
   `routing.toml` (at the orchestrator runtime's config dir — reference:
   `~/.claude/routing.toml`; template: `config-templates/hivemind/routing.toml`)
@@ -301,8 +299,8 @@ an allow / ask / deny resolver, and yours must match the fleet's model
 - **Carry the hard-denies over verbatim.** The deny list (apocalypse commands,
   credential reads, force-push to main, verification bypasses) is the same for
   every runtime — no local edits, no "my runtime doesn't need that one".
-- **ASK escalates to the human relay and TIMES OUT TO DENY.** A prompt nobody
-  answers is a denial, never a silent approval.
+- **Consequential approval asks time out to DENY.** Clarifying questions fall
+  back to the native UI when relay state or transport is degraded.
 - **No permission layer? Declare it.** If your runtime cannot enforce
   allow/ask/deny, that is a real limitation — write it down and report it to
   the human (§5). Behaving cautiously is not the same as being constrained,
@@ -340,9 +338,8 @@ throwaway subagent, you obey these for as long as you run on this machine.
 4. **Walk the wiki before you answer non-trivial questions.** Scan
    `<vault>/MANIFEST.md`; if a topic hub matches, read its TL;DR before
    answering. Reading 30 lines is cheap; answering from stale assumptions is not.
-5. **When blocked on a human decision, use the relay — don't guess, don't
-   stall.** Route the question through the approval relay (or ask the human to)
-   and continue once they answer.
+5. **When blocked on a human decision, honor verified live routing.** Relay
+   only on explicit authorization; otherwise ask inline. Never bypass the gate.
 6. **Stay in your lane on shared assets.** If you edit a tracked repo or durable
    global agent asset, follow that repo's conventions (commit discipline, the
    wiki Doer-mode cluster protocol where it applies). Don't refactor things you
@@ -362,9 +359,10 @@ Report these back to the human so they can confirm you're wired in correctly:
 - [ ] Your identity file is in place (symlinked, for a known runtime; created +
       symlinked + added to bootstrap, for a new runtime), and you said which.
 - [ ] You can read `<vault>/MANIFEST.md` and know to walk it before answering.
-- [ ] You know how to reach the human through the relay when blocked.
-- [ ] You have declared which **role slot** you currently resolve to (CEO /
-      orchestrator / worker, per `roles.toml` × `mode.state`), and why — and
+- [ ] You know how to check verified relay state and that OFF/unknown asks
+      inline without contacting the backend.
+- [ ] You have declared which live role you currently resolve to (CEO /
+      orchestrator / worker, from session origin + mode), and why — and
       you know that a dispatched, scoped task makes you a worker regardless.
 - [ ] Any capability you *cannot* support (e.g. no session hooks → no
       auto-quicksave) is written down and reported, not silently skipped.

@@ -10,22 +10,17 @@ the human swaps agents in and out of roles (CEO / orchestrator / worker) through
 the Hivemind OS control plane. **Role is a slot you are assigned, not a fixed
 property of who you are.**
 
-Your live role for this session is resolved from the control plane's
-`roles.toml` against the current mode (`mode.state`: `present` → orchestrator
-apex; `away` → CEO apex). The reference deployment keeps both at
-`<tooling-repo>/shared/hivemind/`; starter copies ship in the doctrine repo at
-`config-templates/hivemind/`. If a session-start hook injected a "YOUR CURRENT
-ROLE" banner, obey it. If not, read `roles.toml` yourself and self-assign. Then
-load the matching playbook — `docs/playbooks/CEO-PLAYBOOK.md`,
-`ORCHESTRATOR-PLAYBOOK.md`, or `WORKER-PLAYBOOK.md` in the doctrine repo — and
-act as that role.
+Your live role comes from how this session began:
 
-**Precedence — if another agent dispatched you with a scoped task, you are a
-`worker`. Full stop.** Do not resolve your own role from `roles.toml` in that
-case: it records which agent *holds* a role, not what *this process* is. A
-delegated run that self-assigns an apex role will start spawning work of its
-own inside what was meant to be one scoped task. Self-assign from `roles.toml`
-only when the human started you directly as a top-level session.
+- **The human opened this chat:** in `present` mode, you are orchestrator of
+  this conversation. `roles.toml` does not choose the present-mode orchestrator.
+- **Dispatched by another agent:** you are a `worker`. Full stop. Honour an
+  explicit launch role such as `HIVEMIND_ROLE=worker` or `role: worker`.
+- **`mode.state` is `away`:** the CEO named in `roles.toml` is apex; every other
+  agent is a worker.
+
+If a session-start hook injected a "YOUR CURRENT ROLE" banner, obey it. Then
+load the matching playbook in `docs/playbooks/` and act as that role.
 
 # The executor tier
 Below the specialist workers sits a "drone ant" tier for decision-free
@@ -313,22 +308,11 @@ pattern, pillar, etc.):
   let it die in chat history.
 - Add typed weighted edges. Update `index.md` and `log.md`.
 
-# Asking clarifying questions (optional human-in-the-loop relay)
+# Asking clarifying questions
 
-If you wire up an approval/question relay (see the human-in-the-loop
-doctrine), then when you'd normally pause inline to ask me a
-clarifying question, run the relay instead so I can answer from my
-phone if I'm away from the keyboard:
-
-    <your-relay-command> --prompt "your question" [--option "A" --option "B" ...]
-
-The command should block for a bounded window and write my answer to
-stdout (one line; use it verbatim as my reply). With `--option` I see
-numbered buttons and can tap one or reply free text; without options I
-just type a reply. If the command fails (non-zero exit or no daemon),
-fall back to asking inline like usual. Don't loop on it.
-
-Use this only for genuine clarifying questions, not chatty banter.
+Follow `docs/human-in-the-loop.md`. Check the control plane's verified live
+relay state at question time. Only an exact relay authorization may contact the
+configured backend; OFF, unknown, stale, or failed checks ask inline.
 
 # Joining the fleet
 Full onboarding context lives in the repo's `ONBOARDING.md` and
